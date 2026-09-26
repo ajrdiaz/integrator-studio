@@ -1,5 +1,7 @@
 import React from "react";
 import type { MotionScene, Scene } from "../src/schemas/storyboard";
+import type { TimelineScene } from "../src/schemas/timeline";
+import { ScreenScene } from "./scenes/screen/ScreenScene";
 import type { TemplateId } from "../src/schemas/templates";
 import { Checklist } from "./scenes/motion/Checklist";
 import { Comparison } from "./scenes/motion/Comparison";
@@ -27,12 +29,13 @@ export const MOTION_TEMPLATES: { [K in TemplateId]: TemplateComponent<K> } = {
   timeline: Timeline,
 };
 
-export const SceneRenderer: React.FC<{ scene: Scene }> = ({ scene }) => {
+export const SceneRenderer: React.FC<{ scene: Scene; screen?: TimelineScene["screen"]; baseUrl?: string }> = ({ scene, screen, baseUrl = "" }) => {
   if (scene.type === "motion") {
     const Component = MOTION_TEMPLATES[scene.template] as TemplateComponent<TemplateId>;
     return <Component title={scene.onScreenText} props={scene.props as never} />;
   }
-  // Escenas de pantalla: se implementan en la Fase 3 (grabación del ERP).
+  if (screen) return <ScreenScene scene={scene} screen={screen} baseUrl={baseUrl} />;
+  // Escena de pantalla sin grabación todavía (falta explorar/grabar el ERP).
   return (
     <SceneShell title={scene.onScreenText}>
       <div style={{ margin: "auto", fontSize: 40, opacity: 0.5 }}>[Grabación pendiente: {scene.goal}]</div>

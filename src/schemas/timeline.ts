@@ -1,3 +1,4 @@
+import type { RecordedStep } from "./recording-plan";
 import type { Format, Scene } from "./storyboard";
 
 /** Palabra con tiempos relativos al inicio de su escena (frames). */
@@ -14,6 +15,17 @@ export interface TimelineScene {
   /** Ruta relativa al directorio del job (se sirve por HTTP durante el render). */
   audio?: { src: string; durationInFrames: number; offsetFrames: number };
   captions?: CaptionWord[];
+  /** Escenas de pantalla: tramo de la grabación del ERP. Tiempos de `steps` relativos a `start`. */
+  screen?: {
+    src: string;
+    width: number;
+    height: number;
+    start: number;
+    end: number;
+    /** Velocidad de reproducción (>1 si el tramo es mucho más largo que la voz). */
+    rate: number;
+    steps: RecordedStep[];
+  };
 }
 
 /** Entrada completa de la composición de Remotion. Se guarda como jobs/<id>/timeline.json. */

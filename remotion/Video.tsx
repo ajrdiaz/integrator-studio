@@ -54,7 +54,7 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
       {timeline.scenes.map((ts) => (
         <Sequence key={ts.scene.id} from={ts.from} durationInFrames={ts.durationInFrames} name={ts.scene.id}>
           <CaptionReserve.Provider value={reserve}>
-            <SceneRenderer scene={ts.scene} />
+            <SceneRenderer scene={ts.scene} screen={ts.screen} baseUrl={base} />
           </CaptionReserve.Provider>
           {ts.audio ? (
             <Sequence from={ts.audio.offsetFrames} durationInFrames={ts.audio.durationInFrames + 2} name="voz">

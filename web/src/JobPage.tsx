@@ -148,7 +148,9 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
           <p className="muted">Pedido: “{m.request.raw}”</p>
         </div>
         <div className="stages">
-          {(["storyboard", "tts", "compose", "render"] as const).map((s) => {
+          {(["storyboard", "explore", "record", "tts", "compose", "render"] as const)
+            .filter((s) => (s !== "explore" && s !== "record") || draft?.scenes.some((x) => x.type === "screen"))
+            .map((s) => {
             const st = m.stages[s]?.status ?? "pending";
             return (
               <span key={s} className={`stage ${st}`} title={m.stages[s]?.error ?? ""}>
@@ -282,6 +284,16 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
                 >
                   Reescribir guion
                 </button>
+                {draft.scenes.some((x) => x.type === "screen") ? (
+                  <>
+                    <button className="ghost" disabled={running} onClick={() => produce({ from: "record" })} title="Vuelve a grabar el ERP con el mismo plan (sin IA)">
+                      Regrabar ERP
+                    </button>
+                    <button className="ghost" disabled={running} onClick={() => produce({ from: "explore" })} title="El agente vuelve a explorar el ERP y genera un plan nuevo">
+                      Re-explorar ERP
+                    </button>
+                  </>
+                ) : null}
               </div>
               <Log events={events} />
             </div>

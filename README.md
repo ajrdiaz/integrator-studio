@@ -15,7 +15,7 @@ Cada video es una carpeta reproducible en `jobs/<id>/` y cada etapa se puede rea
 |---|---|---|
 | 1 | Storyboard (Claude) + render de promos motion en 16:9 | ✅ |
 | 2 | Voz (ElevenLabs), subtítulos quemados, música con ducking, 16:9 / 9:16 / 1:1 | ✅ (falta probar con la clave de ElevenLabs) |
-| 3 | Agente explorador del ERP (Claude Agent SDK + Playwright) y grabación determinista | pendiente |
+| 3 | Agente explorador del ERP (Claude Agent SDK + Playwright) y grabación determinista | ✅ |
 | 4 | Interfaz web: edición del storyboard, regeneración por etapa, versiones | ✅ |
 
 ## Requisitos
@@ -109,6 +109,28 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
   licencia) y borra esa.
 - **Formatos**: `--formats all` → 16:9, 9:16 (con zona segura para Reels/TikTok) y 1:1.
 
+## Tutoriales: exploración y grabación del ERP
+
+1. **Exploración (agente)** — `src/stages/explore.ts`. Para cada escena `screen`, un agente del Claude Agent SDK
+   controla Chrome con herramientas propias (`snapshot` del árbol de accesibilidad, `screenshot`, `click`, `fill`,
+   `select`, `press`, `wait`, `goto`, `commit_step`, `restart`, `report_blocked`). Cada acción exitosa queda
+   pendiente y `commit_step` la asigna al paso; `restart` vuelve al último paso confirmado. Resultado:
+   `recording-plan.json` con selectores robustos (rol + nombre preferidos), valores y elemento a resaltar.
+   Si se traba, se detiene y explica dónde (`blocked`, con captura en `explore/`).
+2. **Grabación (sin IA)** — `src/stages/record.ts`. Reproduce el plan en 1920x1080 con cursor visible y animado,
+   efecto de clic, tipeo natural con semilla fija y una pausa al final de cada paso. Graba con el screencast de
+   Chrome (JPEG de alta calidad) y ensambla `recordings/tutorial.mp4` a 30 fps. Guarda tiempos por paso,
+   clics y cajas de los elementos en `recordings/recording.json`. Si cambia la interfaz del ERP: "Re-explorar";
+   si solo quieres otra toma idéntica: "Regrabar".
+3. **Composición** — `remotion/scenes/screen/ScreenScene.tsx`: cámara que sigue al elemento activo (zoom suave en
+   16:9, reencuadre en 9:16 y 1:1), resaltado con callout en la pausa de cada paso y chip de progreso. Si la
+   grabación es más larga que la voz se acelera hasta 1,35x; si es más corta, se congela el último cuadro.
+
+**Seguridad**: solo `ERP_ENV=demo`; navegación limitada al host de `ERP_URL` (otros dominios solo GET de recursos);
+`ERP_PROD_HOSTS` como lista negra; empresa fija `ERP_COMPANY`; antes de cada paso se verifica el aviso
+"Ambiente de Prueba" y si no aparece se detiene; el login usa `.env` y el agente nunca ve la contraseña.
+Opcional: `ERP_SAMPLE_CUSTOMER` = cliente ficticio que el agente debe usar en los videos.
+
 ## Estructura de un job
 
 ```
@@ -118,6 +140,9 @@ jobs/<id>/
   history/storyboard.vN.json
   logs/storyboard.transcript.json
   audio/<escena>.mp3|.json  # locución + duración real + tiempos por palabra
+  recording-plan.json      # plan del agente (acciones, selectores, resaltados)
+  explore/                 # capturas del agente (y del bloqueo, si lo hubo)
+  recordings/tutorial.mp4  # grabación del ERP + recording.json (tiempos por paso)
   timeline.json            # escenas en frames, lo que recibe Remotion
   renders/vN/16x9.mp4      # cada render crea una versión nueva
 ```
@@ -165,7 +190,7 @@ fixtures/                storyboards de ejemplo (y sus timelines para Remotion S
 ## Marca
 
 - Verde principal `#009b72`, tipografía Poppins (archivos locales en `assets/fonts`, licencia OFL).
-- `assets/logo.svg` es un **placeholder**: reemplázalo por el logo oficial con el mismo nombre.
+- `assets/logo.svg`: logo oficial tomado del login de Integrator, recoloreado a `#009b72`.
 - Intro (3 s) y cierre con CTA "Asesoría gratuita · WhatsApp +51 941 427 296 · integrator.pe" (4 s) son fijos.
 
 ## Licencia de Remotion

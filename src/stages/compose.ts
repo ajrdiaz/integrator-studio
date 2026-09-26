@@ -1,3 +1,4 @@
+import type { Recording } from "../schemas/recording-plan";
 import { INTRO_SEC, OUTRO_SEC, type Storyboard } from "../schemas/storyboard";
 import type { CaptionWord, Timeline, TimelineScene } from "../schemas/timeline";
 
@@ -13,6 +14,8 @@ export interface SceneAudio {
 export interface ComposeOptions {
   audio?: Record<string, SceneAudio>;
   music?: { src: string; volume: number };
+  /** Grabación del ERP para las escenas de pantalla (Fase 3). */
+  recording?: Recording;
   /** Silencio antes y después de la locución dentro de cada escena. */
   leadInSec?: number;
   tailSec?: number;
@@ -34,9 +37,36 @@ export function compose(sb: Storyboard, opts: ComposeOptions = {}): Timeline {
   const scenes: TimelineScene[] = sb.scenes.map((scene) => {
     const audio = opts.audio?.[scene.id];
     const needed = audio ? leadIn + audio.durationSec + tail : 0;
-    const durationInFrames = toFrames(Math.max(scene.estDurationSec, needed));
+    const seg = scene.type === "screen" ? opts.recording?.scenes.find((s) => s.sceneId === scene.id) : undefined;
+    let durationSec = Math.max(scene.estDurationSec, needed);
+    let screen: TimelineScene["screen"];
+    if (seg && opts.recording) {
+      const segLen = seg.end - seg.start;
+      // Si la grabación es bastante más larga que la voz, se acelera un poco (máx. 1,35x); si es más corta, se congela el final.
+      const rate = needed > 0 && segLen > needed * 1.1 ? Math.min(1.35, segLen / needed) : 1;
+      durationSec = Math.max(segLen / rate, needed);
+      screen = {
+        src: opts.recording.file,
+        width: opts.recording.width,
+        height: opts.recording.height,
+        start: seg.start,
+        end: seg.end,
+        rate,
+        steps: opts.recording.steps
+          .filter((st) => st.sceneId === scene.id)
+          .map((st) => ({
+            ...st,
+            start: st.start - seg.start,
+            end: st.end - seg.start,
+            holdAt: st.holdAt - seg.start,
+            clicks: st.clicks.map((c) => ({ ...c, t: c.t - seg.start })),
+            focus: st.focus.map((f) => ({ ...f, t: f.t - seg.start })),
+          })),
+      };
+    }
+    const durationInFrames = toFrames(durationSec);
     const offsetFrames = toFrames(leadIn);
-    const ts: TimelineScene = { scene, from: cursor, durationInFrames };
+    const ts: TimelineScene = { scene, from: cursor, durationInFrames, ...(screen ? { screen } : {}) };
     if (audio) {
       ts.audio = { src: audio.src, durationInFrames: toFrames(audio.durationSec), offsetFrames };
       if (audio.words) {

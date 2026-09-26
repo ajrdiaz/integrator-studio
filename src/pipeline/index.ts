@@ -7,6 +7,9 @@ import type { Timeline } from "../schemas/timeline";
 import { existsSync, readdirSync } from "node:fs";
 import { ASSETS_DIR } from "../config";
 import { compose, type SceneAudio } from "../stages/compose";
+import { explore } from "../stages/explore";
+import { record } from "../stages/record";
+import { RecordingPlan, type Recording } from "../schemas/recording-plan";
 import { getProvider, synthesizeScenes } from "../stages/tts";
 import { renderVideo } from "../stages/render";
 import { generateStoryboard } from "../stages/storyboard";
@@ -74,10 +77,54 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   if (opts.formats?.length) storyboard = { ...storyboard, formats: opts.formats };
   if (stop("storyboard")) return job;
 
-  const hasScreen = storyboard.scenes.some((s) => s.type === "screen");
-  if (hasScreen) onProgress("explore", "escenas de pantalla pendientes (Fase 3): se renderizan como marcador");
+  // 2. Exploración del ERP (agente) y grabación determinista ─────────────────
+  const screens = storyboard.scenes.filter((s) => s.type === "screen");
+  let recording: Recording | undefined;
+  if (screens.length) {
+    // El plan depende solo de los objetivos y pasos de las escenas de pantalla (no de textos ni voz).
+    const exploreHash = hash(screens.map((s) => ({ id: s.id, goal: s.goal, steps: s.steps.map((st) => ({ id: st.id, objective: st.objective })) })));
+    let plan: RecordingPlan;
+    if (job.stage("explore").status === "done" && job.stage("explore").inputHash === exploreHash && job.exists("recording-plan.json")) {
+      plan = RecordingPlan.parse(job.readJson("recording-plan.json"));
+      onProgress("explore", "recording plan reutilizado");
+    } else {
+      onProgress("explore", "el agente explora el ERP de prueba…");
+      try {
+        plan = await explore(job, storyboard, (m) => onProgress("explore", m));
+        job.writeJson("recording-plan.json", plan);
+      } catch (e) {
+        job.setStage("explore", { status: "failed", error: redact((e as Error).message) });
+        throw e;
+      }
+      if (plan.blocked) {
+        const msg = `El agente se trabó en ${plan.blocked.sceneId}/${plan.blocked.stepId}: ${plan.blocked.reason}`;
+        job.setStage("explore", { status: "failed", error: redact(msg) });
+        throw new Error(msg);
+      }
+      job.setStage("explore", { status: "done", inputHash: exploreHash, error: undefined });
+      job.invalidateFrom("record");
+    }
+    if (stop("explore")) return job;
 
-  // 2. Voz en off ─────────────────────────────────────────────────────────────
+    const recordHash = hash({ plan: plan.scenes, v: 1 });
+    if (job.stage("record").status === "done" && job.stage("record").inputHash === recordHash && job.exists("recordings/recording.json")) {
+      recording = job.readJson<Recording>("recordings/recording.json");
+      onProgress("record", "grabación reutilizada");
+    } else {
+      try {
+        recording = await record(job, plan, (m) => onProgress("record", m));
+        job.writeJson("recordings/recording.json", recording);
+        job.setStage("record", { status: "done", inputHash: recordHash, error: undefined });
+        onProgress("record", `${recording.durationSec.toFixed(1)} s grabados`);
+      } catch (e) {
+        job.setStage("record", { status: "failed", error: redact((e as Error).message) });
+        throw e;
+      }
+    }
+    if (stop("record")) return job;
+  }
+
+  // 3. Voz en off ─────────────────────────────────────────────────────────────
   let audio: Record<string, SceneAudio> | undefined;
   if (opts.tts !== false) {
     const provider = getProvider(opts.tts || undefined);
@@ -95,17 +142,17 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   }
   if (stop("tts")) return job;
 
-  // 3. Composición ───────────────────────────────────────────────────────────
+  // 4. Composición ───────────────────────────────────────────────────────────
   const musicSrc = storyboard.music ? pickMusic() : undefined;
   if (storyboard.music && !musicSrc) onProgress("compose", "sin música: agrega una pista en assets/music/");
   const music = musicSrc ? { src: musicSrc, volume: 0.28 } : undefined;
-  const composeHash = hash({ storyboard, audio, music });
+  const composeHash = hash({ storyboard, audio, music, recording });
   let timeline: Timeline;
   if (job.stage("compose").status === "done" && job.stage("compose").inputHash === composeHash && job.exists("timeline.json")) {
     timeline = job.readJson<Timeline>("timeline.json");
     onProgress("compose", "reutilizada");
   } else {
-    timeline = compose(storyboard, { audio, music });
+    timeline = compose(storyboard, { audio, music, recording });
     job.writeJson("timeline.json", timeline);
     job.setStage("compose", { status: "done", inputHash: composeHash });
     job.invalidateFrom("render");
@@ -113,7 +160,7 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   }
   if (stop("compose")) return job;
 
-  // 4. Render ────────────────────────────────────────────────────────────────
+  // 5. Render ────────────────────────────────────────────────────────────────
   const renderHash = hash({ timeline, formats: storyboard.formats });
   if (job.stage("render").status === "done" && job.stage("render").inputHash === renderHash) {
     onProgress("render", "sin cambios; se conserva la última versión");
