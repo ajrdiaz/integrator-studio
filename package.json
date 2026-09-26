@@ -1,0 +1,37 @@
+{
+  "name": "integrator-video-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Genera videos promocionales y tutoriales de Integrator ERP a partir de un pedido en texto.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "video": "tsx src/cli.ts",
+    "studio": "remotion studio remotion/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "fixtures": "tsx scripts/build-fixtures.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@remotion/bundler": "4.0.529",
+    "@remotion/cli": "4.0.529",
+    "@remotion/fonts": "4.0.529",
+    "@remotion/renderer": "4.0.529",
+    "dotenv": "^18.0.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.529",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "fps": 30,
+  "title": "Catálogo de plantillas",
+  "introFrames": 90,
+  "outroFrames": 120,
+  "scenes": [
+    {
+      "scene": {
+        "type": "motion",
+        "template": "counter",
+        "id": "s1-contador",
+        "onScreenText": "Datos ilustrativos de una empresa demo",
+        "narration": "Ejemplo de la plantilla de contadores.",
+        "estDurationSec": 4,
+        "props": {
+          "items": [
+            {
+              "value": 1250,
+              "label": "Facturas emitidas al mes"
+            },
+            {
+              "value": 98.5,
+              "suffix": "%",
+              "decimals": 1,
+              "label": "Comprobantes aceptados a la primera"
+            },
+            {
+              "value": 3,
+              "suffix": " h",
+              "label": "Cierre de caja diario"
+            }
+          ]
+        }
+      },
+      "from": 90,
+      "durationInFrames": 120
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "timeline",
+        "id": "s2-linea",
+        "onScreenText": "Así se implementa",
+        "narration": "Ejemplo de la plantilla de línea de tiempo.",
+        "estDurationSec": 5,
+        "props": {
+          "milestones": [
+            {
+              "label": "Diagnóstico",
+              "detail": "Revisamos tus procesos"
+            },
+            {
+              "label": "Configuración",
+              "detail": "Series, almacenes, plan contable"
+            },
+            {
+              "label": "Capacitación",
+              "detail": "Por área"
+            },
+            {
+              "label": "Salida en vivo",
+              "detail": "Con acompañamiento"
+            }
+          ]
+        }
+      },
+      "from": 210,
+      "durationInFrames": 150
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "dashboard",
+        "id": "s3-linea-grafico",
+        "onScreenText": "Flujo de caja proyectado",
+        "narration": "Ejemplo del dashboard con gráfico de líneas.",
+        "estDurationSec": 4,
+        "props": {
+          "kpis": [
+            {
+              "label": "Saldo en bancos",
+              "value": "S/ 184,200"
+            },
+            {
+              "label": "Por pagar 30 días",
+              "value": "S/ 72,480",
+              "delta": "-5%"
+            }
+          ],
+          "chart": {
+            "kind": "line",
+            "labels": [
+              "S1",
+              "S2",
+              "S3",
+              "S4",
+              "S5",
+              "S6",
+              "S7",
+              "S8"
+            ],
+            "values": [
+              120,
+              132,
+              128,
+              150,
+              162,
+              158,
+              175,
+              184
+            ]
+          }
+        }
+      },
+      "from": 360,
+      "durationInFrames": 120
+    }
+  ],
+  "totalFrames": 600
+}

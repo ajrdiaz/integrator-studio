@@ -1,0 +1,55 @@
+{
+  "kind": "promo",
+  "title": "Catálogo de plantillas",
+  "targetDurationSec": 20,
+  "formats": ["16x9"],
+  "music": false,
+  "scenes": [
+    {
+      "id": "s1-contador",
+      "type": "motion",
+      "template": "counter",
+      "onScreenText": "Datos ilustrativos de una empresa demo",
+      "narration": "Ejemplo de la plantilla de contadores.",
+      "estDurationSec": 4,
+      "props": {
+        "items": [
+          { "value": 1250, "label": "Facturas emitidas al mes" },
+          { "value": 98.5, "decimals": 1, "suffix": "%", "label": "Comprobantes aceptados a la primera" },
+          { "value": 3, "suffix": " h", "label": "Cierre de caja diario" }
+        ]
+      }
+    },
+    {
+      "id": "s2-linea",
+      "type": "motion",
+      "template": "timeline",
+      "onScreenText": "Así se implementa",
+      "narration": "Ejemplo de la plantilla de línea de tiempo.",
+      "estDurationSec": 5,
+      "props": {
+        "milestones": [
+          { "label": "Diagnóstico", "detail": "Revisamos tus procesos" },
+          { "label": "Configuración", "detail": "Series, almacenes, plan contable" },
+          { "label": "Capacitación", "detail": "Por área" },
+          { "label": "Salida en vivo", "detail": "Con acompañamiento" }
+        ]
+      }
+    },
+    {
+      "id": "s3-linea-grafico",
+      "type": "motion",
+      "template": "dashboard",
+      "onScreenText": "Flujo de caja proyectado",
+      "narration": "Ejemplo del dashboard con gráfico de líneas.",
+      "estDurationSec": 4,
+      "props": {
+        "kpis": [
+          { "label": "Saldo en bancos", "value": "S/ 184,200" },
+          { "label": "Por pagar 30 días", "value": "S/ 72,480", "delta": "-5%" }
+        ],
+        "chart": { "kind": "line", "labels": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"], "values": [120, 132, 128, 150, 162, 158, 175, 184] }
+      }
+    }
+  ]
+}

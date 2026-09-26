@@ -1,0 +1,145 @@
+{
+  "fps": 30,
+  "title": "Sin costos ocultos",
+  "introFrames": 90,
+  "outroFrames": 120,
+  "scenes": [
+    {
+      "scene": {
+        "type": "motion",
+        "template": "kinetic-title",
+        "id": "s1-gancho",
+        "onScreenText": "¿Tu ERP te cobra por todo?",
+        "narration": "¿Tu ERP te cobra por cada módulo, cada usuario y cada consulta?",
+        "estDurationSec": 3.5,
+        "props": {
+          "subline": "Módulos, usuarios, soporte, renovaciones…",
+          "emphasis": [
+            "todo"
+          ]
+        }
+      },
+      "from": 90,
+      "durationInFrames": 105
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "comparison",
+        "id": "s2-comparacion",
+        "onScreenText": "La diferencia está en la letra pequeña",
+        "narration": "Con otros sistemas, cada necesidad nueva es un cobro nuevo. Con Integrator sabes desde el inicio cuánto vas a invertir.",
+        "estDurationSec": 6,
+        "props": {
+          "left": {
+            "label": "Otros ERP",
+            "points": [
+              "Módulos que se cobran aparte",
+              "Cargos extra por soporte",
+              "Sorpresas en cada renovación"
+            ]
+          },
+          "right": {
+            "label": "Integrator",
+            "points": [
+              "Precio claro desde el inicio",
+              "Módulos integrados",
+              "Asesoría para implementar"
+            ]
+          }
+        }
+      },
+      "from": 195,
+      "durationInFrames": 180
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "checklist",
+        "id": "s3-incluye",
+        "onScreenText": "Todo tu negocio en un solo sistema",
+        "narration": "Ventas, facturación electrónica SUNAT, almacenes, producción, tesorería y contabilidad, trabajando juntos.",
+        "estDurationSec": 5.5,
+        "props": {
+          "items": [
+            "Ventas y facturación electrónica SUNAT",
+            "Almacenes y guías de remisión",
+            "Producción y costos",
+            "Tesorería y contabilidad",
+            "Detracciones y percepciones"
+          ]
+        }
+      },
+      "from": 375,
+      "durationInFrames": 165
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "dashboard",
+        "id": "s4-control",
+        "onScreenText": "Decide con números reales",
+        "narration": "Y con la información al día, decides con datos, no con suposiciones.",
+        "estDurationSec": 5,
+        "props": {
+          "kpis": [
+            {
+              "label": "Ventas del mes",
+              "value": "S/ 248,300",
+              "delta": "+14%"
+            },
+            {
+              "label": "Cuentas por cobrar",
+              "value": "S/ 61,900",
+              "delta": "-8%"
+            },
+            {
+              "label": "Stock valorizado",
+              "value": "S/ 412,050"
+            }
+          ],
+          "chart": {
+            "kind": "bar",
+            "labels": [
+              "Ene",
+              "Feb",
+              "Mar",
+              "Abr",
+              "May",
+              "Jun"
+            ],
+            "values": [
+              152,
+              168,
+              161,
+              190,
+              214,
+              248
+            ]
+          }
+        }
+      },
+      "from": 540,
+      "durationInFrames": 150
+    },
+    {
+      "scene": {
+        "type": "motion",
+        "template": "kinetic-title",
+        "id": "s5-remate",
+        "onScreenText": "Sin letra pequeña. Sin costos ocultos.",
+        "narration": "Integrator: sin letra pequeña y sin costos ocultos.",
+        "estDurationSec": 3,
+        "props": {
+          "emphasis": [
+            "costos",
+            "ocultos."
+          ]
+        }
+      },
+      "from": 690,
+      "durationInFrames": 90
+    }
+  ],
+  "totalFrames": 900
+}
