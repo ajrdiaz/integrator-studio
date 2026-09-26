@@ -5,6 +5,7 @@ import type { KineticTitleProps } from "../../../src/schemas/templates";
 import { progress, stagger, useExit } from "../../anim";
 import { brand } from "../../brand";
 import { useLayout } from "../../layout";
+import { CaptionReserve } from "../../components/Captions";
 
 const clean = (w: string) => w.toLowerCase().replace(/[.,:;!¡?¿"“”]/g, "");
 
@@ -13,6 +14,7 @@ export const KineticTitle: React.FC<{ title: string; props: z.infer<typeof Kinet
   const { fps, durationInFrames } = useVideoConfig();
   const { u, isPortrait, pad } = useLayout();
   const exit = useExit(8);
+  const reserve = React.useContext(CaptionReserve);
   const words = title.split(/\s+/).filter(Boolean);
   const emphasis = new Set((props.emphasis ?? []).flatMap((e) => e.split(/\s+/)).map(clean));
   const step = stagger(words.length, Math.min(30, durationInFrames * 0.35), 6);
@@ -28,6 +30,7 @@ export const KineticTitle: React.FC<{ title: string; props: z.infer<typeof Kinet
         alignItems: "center",
         justifyContent: "center",
         padding: pad,
+        paddingBottom: Math.max(pad, reserve * 0.8),
         textAlign: "center",
       }}
     >

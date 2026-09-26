@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { progress, useExit } from "../anim";
 import { brand } from "../brand";
+import { CaptionReserve } from "./Captions";
 import { useLayout } from "../layout";
 
 /**
@@ -15,6 +16,7 @@ export const SceneShell: React.FC<{ title?: string; children: React.ReactNode; b
 }) => {
   const frame = useCurrentFrame();
   const { u, pad, isPortrait } = useLayout();
+  const reserve = React.useContext(CaptionReserve);
   const exit = useExit(8);
   const t = progress(frame, 0, 14);
   const bar = progress(frame, 4, 20);
@@ -25,7 +27,7 @@ export const SceneShell: React.FC<{ title?: string; children: React.ReactNode; b
         style={{
           padding: pad,
           paddingTop: pad * (isPortrait ? 1.6 : 0.9),
-          paddingBottom: pad + bottomReserve,
+          paddingBottom: Math.max(pad, reserve) + bottomReserve,
           display: "flex",
           flexDirection: "column",
           gap: (isPortrait ? 60 : 44) * u,

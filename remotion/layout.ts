@@ -6,8 +6,9 @@ import { useVideoConfig } from "remotion";
  */
 export function useLayout() {
   const { width, height } = useVideoConfig();
-  const u = Math.min(width, height) / 1080;
   const orientation = width > height ? "landscape" : width < height ? "portrait" : "square";
+  // En vertical hay más alto disponible: se agranda un poco todo para que se lea en el celular.
+  const u = (Math.min(width, height) / 1080) * (orientation === "portrait" ? 1.1 : 1);
   return {
     width,
     height,

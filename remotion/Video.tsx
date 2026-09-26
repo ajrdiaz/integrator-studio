@@ -1,8 +1,10 @@
 import React from "react";
-import { AbsoluteFill, Sequence, delayRender, continueRender, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Sequence, delayRender, continueRender, useCurrentFrame } from "remotion";
 import type { VideoProps } from "../src/schemas/timeline";
 import { brand, ensureFonts } from "./brand";
 import { Background } from "./components/Background";
+import { CaptionReserve, Captions } from "./components/Captions";
+import { Music } from "./components/Music";
 import { Intro } from "./components/Intro";
 import { Logo } from "./components/Logo";
 import { Outro } from "./components/Outro";
@@ -36,6 +38,10 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
     ensureFonts().then(() => continueRender(handle));
   }, [handle]);
 
+  const { u, orientation } = useLayout();
+  const hasCaptions = timeline.scenes.some((s) => s.captions?.length);
+  const reserve = hasCaptions ? { portrait: 440, square: 200, landscape: 150 }[orientation] * u : 0;
+  const base = timeline.assetBaseUrl ?? "";
   const scenesStart = timeline.introFrames;
   const scenesEnd = timeline.totalFrames - timeline.outroFrames;
 
@@ -47,7 +53,15 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
       </Sequence>
       {timeline.scenes.map((ts) => (
         <Sequence key={ts.scene.id} from={ts.from} durationInFrames={ts.durationInFrames} name={ts.scene.id}>
-          <SceneRenderer scene={ts.scene} />
+          <CaptionReserve.Provider value={reserve}>
+            <SceneRenderer scene={ts.scene} />
+          </CaptionReserve.Provider>
+          {ts.audio ? (
+            <Sequence from={ts.audio.offsetFrames} durationInFrames={ts.audio.durationInFrames + 2} name="voz">
+              <Audio src={base + ts.audio.src} />
+            </Sequence>
+          ) : null}
+          {ts.captions?.length ? <Captions words={ts.captions} /> : null}
         </Sequence>
       ))}
       <Sequence from={0} durationInFrames={timeline.introFrames} name="Intro">
@@ -56,6 +70,7 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
       <Sequence from={scenesEnd} durationInFrames={timeline.outroFrames} name="Cierre">
         <Outro />
       </Sequence>
+      <Music timeline={timeline} />
     </AbsoluteFill>
   );
 };

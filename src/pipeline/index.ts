@@ -4,7 +4,10 @@ import { Job, STAGES, hash, type Stage } from "../jobs/store";
 import { parseRequest } from "../request";
 import type { Format, Storyboard } from "../schemas/storyboard";
 import type { Timeline } from "../schemas/timeline";
-import { compose } from "../stages/compose";
+import { existsSync, readdirSync } from "node:fs";
+import { ASSETS_DIR } from "../config";
+import { compose, type SceneAudio } from "../stages/compose";
+import { getProvider, synthesizeScenes } from "../stages/tts";
 import { renderVideo } from "../stages/render";
 import { generateStoryboard } from "../stages/storyboard";
 
@@ -19,6 +22,16 @@ export interface RunOptions {
   /** Detenerse después de esta etapa (p. ej. "storyboard" para revisar antes de continuar). */
   until?: Stage;
   formats?: Format[];
+  /** Proveedor de voz ("elevenlabs", "silent") o false para un video sin voz. */
+  tts?: string | false;
+}
+
+/** Primera pista en assets/music (mp3/m4a/wav), si existe. */
+function pickMusic(): string | undefined {
+  const dir = `${ASSETS_DIR}/music`;
+  if (!existsSync(dir)) return undefined;
+  const f = readdirSync(dir).filter((n) => /\.(mp3|m4a|wav)$/i.test(n)).sort()[0];
+  return f ? `music/${f}` : undefined;
 }
 
 export type ProgressFn = (stage: Stage, message: string) => void;
@@ -64,14 +77,35 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   const hasScreen = storyboard.scenes.some((s) => s.type === "screen");
   if (hasScreen) onProgress("explore", "escenas de pantalla pendientes (Fase 3): se renderizan como marcador");
 
-  // 2. Composición ───────────────────────────────────────────────────────────
-  const composeHash = hash({ storyboard });
+  // 2. Voz en off ─────────────────────────────────────────────────────────────
+  let audio: Record<string, SceneAudio> | undefined;
+  if (opts.tts !== false) {
+    const provider = getProvider(opts.tts || undefined);
+    try {
+      const res = await synthesizeScenes(job, storyboard, provider, (m) => onProgress("tts", m));
+      audio = res.audio;
+      job.setStage("tts", { status: "done", inputHash: hash(audio), error: undefined, scenes: Object.fromEntries(Object.entries(audio).map(([k, v]) => [k, hash(v)])) });
+      onProgress("tts", res.generated.length ? `${res.generated.length} audio(s) nuevos (${provider.id})` : "sin cambios");
+    } catch (e) {
+      job.setStage("tts", { status: "failed", error: redact((e as Error).message) });
+      throw e;
+    }
+  } else {
+    job.setStage("tts", { status: "skipped" });
+  }
+  if (stop("tts")) return job;
+
+  // 3. Composición ───────────────────────────────────────────────────────────
+  const musicSrc = storyboard.music ? pickMusic() : undefined;
+  if (storyboard.music && !musicSrc) onProgress("compose", "sin música: agrega una pista en assets/music/");
+  const music = musicSrc ? { src: musicSrc, volume: 0.28 } : undefined;
+  const composeHash = hash({ storyboard, audio, music });
   let timeline: Timeline;
   if (job.stage("compose").status === "done" && job.stage("compose").inputHash === composeHash && job.exists("timeline.json")) {
     timeline = job.readJson<Timeline>("timeline.json");
     onProgress("compose", "reutilizada");
   } else {
-    timeline = compose(storyboard);
+    timeline = compose(storyboard, { audio, music });
     job.writeJson("timeline.json", timeline);
     job.setStage("compose", { status: "done", inputHash: composeHash });
     job.invalidateFrom("render");
@@ -79,7 +113,7 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   }
   if (stop("compose")) return job;
 
-  // 3. Render ────────────────────────────────────────────────────────────────
+  // 4. Render ────────────────────────────────────────────────────────────────
   const renderHash = hash({ timeline, formats: storyboard.formats });
   if (job.stage("render").status === "done" && job.stage("render").inputHash === renderHash) {
     onProgress("render", "sin cambios; se conserva la última versión");

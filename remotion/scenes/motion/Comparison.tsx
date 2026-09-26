@@ -21,7 +21,7 @@ const Mark: React.FC<{ good: boolean; size: number }> = ({ good, size }) => (
 );
 
 const Point: React.FC<{ text: string; good: boolean; delay: number }> = ({ text, good, delay }) => {
-  const { u, isPortrait } = useLayout();
+  const { u, isPortrait, orientation } = useLayout();
   const s = useSpringIn(delay, 16);
   return (
     <div
@@ -36,7 +36,7 @@ const Point: React.FC<{ text: string; good: boolean; delay: number }> = ({ text,
       <Mark good={good} size={52 * u} />
       <div
         style={{
-          fontSize: (isPortrait ? 38 : 40) * u,
+          fontSize: (isPortrait ? 38 : orientation === "square" ? 33 : 40) * u,
           fontWeight: good ? 600 : 500,
           color: good ? brand.ink : brand.muted,
           textDecoration: good ? "none" : "line-through",

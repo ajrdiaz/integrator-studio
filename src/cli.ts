@@ -21,6 +21,8 @@ Opciones:
   --formats <lista>     16x9,9x16,1x1 o "all"
   --storyboard <file>   Usar un storyboard JSON (salta la generación con Claude)
   --batch <file>        Procesar varios pedidos en secuencia
+  --tts <proveedor>     elevenlabs (por defecto, TTS_PROVIDER) o silent (prueba sin red)
+  --no-voice            Video sin locución ni subtítulos
 `;
 
 function parseFormats(v?: string): Format[] | undefined {
@@ -47,6 +49,8 @@ async function main() {
       formats: { type: "string" },
       storyboard: { type: "string" },
       batch: { type: "string" },
+      tts: { type: "string" },
+      "no-voice": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -59,6 +63,7 @@ async function main() {
     until: parseStage(values.until),
     formats: parseFormats(values.formats),
     storyboardFile: values.storyboard,
+    tts: values["no-voice"] ? (false as const) : values.tts,
   };
 
   const requests = values.batch

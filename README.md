@@ -14,7 +14,7 @@ Cada video es una carpeta reproducible en `jobs/<id>/` y cada etapa se puede rea
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Storyboard (Claude) + render de promos motion en 16:9 | ✅ |
-| 2 | Voz (ElevenLabs), subtítulos quemados, música con ducking, 16:9 / 9:16 / 1:1 | pendiente |
+| 2 | Voz (ElevenLabs), subtítulos quemados, música con ducking, 16:9 / 9:16 / 1:1 | ✅ (falta probar con la clave de ElevenLabs) |
 | 3 | Agente explorador del ERP (Claude Agent SDK + Playwright) y grabación determinista | pendiente |
 | 4 | Interfaz web: edición del storyboard, regeneración por etapa, versiones | pendiente |
 
@@ -74,6 +74,20 @@ npm run video -- --batch pedidos.txt   # un pedido por línea, '#' para comentar
 Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`30 s`, `1.5 min`) y formato
 (`vertical`, `cuadrado`, `horizontal`, `todos los formatos`).
 
+## Voz, subtítulos y música
+
+- **Voz**: un audio por escena en `jobs/<id>/audio/`. Se mide la duración real (ffprobe) y la escena se alarga si la
+  locución no cabe. Solo se vuelve a sintetizar la escena cuya narración cambió (hash en `audio/<escena>.json`).
+- **Proveedores** (`--tts` o `TTS_PROVIDER`): `elevenlabs` (usa `/with-timestamps` para tiempos por palabra) y
+  `silent` (silencio con tiempos estimados, para probar sin gastar créditos). Para agregar otro (p. ej. Azure),
+  implementa `TtsProvider` (`src/stages/tts/types.ts`) y regístralo en `src/stages/tts/index.ts`.
+- **Pronunciación**: `src/stages/tts/pronunciation.ts` (SUNAT, IGV, RUC…). Los subtítulos muestran el texto escrito.
+- **Subtítulos**: quemados, en páginas cortas, con la palabra actual resaltada en verde.
+- **Música**: si el storyboard tiene `"music": true`, se usa la primera pista de `assets/music/` (orden alfabético),
+  con fade y ducking bajo la voz. `zz-placeholder-pad.mp3` es una pista sintética de prueba: agrega la tuya (con
+  licencia) y borra esa.
+- **Formatos**: `--formats all` → 16:9, 9:16 (con zona segura para Reels/TikTok) y 1:1.
+
 ## Estructura de un job
 
 ```
@@ -82,6 +96,7 @@ jobs/<id>/
   storyboard.json          # guion vigente (editable)
   history/storyboard.vN.json
   logs/storyboard.transcript.json
+  audio/<escena>.mp3|.json  # locución + duración real + tiempos por palabra
   timeline.json            # escenas en frames, lo que recibe Remotion
   renders/vN/16x9.mp4      # cada render crea una versión nueva
 ```
