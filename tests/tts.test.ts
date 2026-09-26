@@ -47,3 +47,18 @@ describe("ducking", () => {
     expect(musicVolume(0, 1000, 0.3, iv)).toBe(0);
   });
 });
+
+import { distribute, sentences } from "../src/stages/tts/kokoro";
+
+describe("kokoro", () => {
+  it("divide en oraciones y reparte tiempos dentro de cada una", () => {
+    const chunks = sentences("¿Firmaste tu ERP? Integrator: sin sorpresas.");
+    expect(chunks).toEqual(["¿Firmaste tu ERP?", "Integrator:", "sin sorpresas."]);
+    const w = distribute(chunks, [{ start: 0, end: 1 }, { start: 1.2, end: 2 }, { start: 2.1, end: 3 }]);
+    expect(w).toHaveLength(6);
+    expect(w[0]!.startSec).toBe(0);
+    expect(w[2]!.endSec).toBeCloseTo(1);
+    expect(w[3]!.startSec).toBe(1.2);
+    expect(w[5]!.endSec).toBeCloseTo(3);
+  });
+});

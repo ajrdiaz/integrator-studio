@@ -78,8 +78,12 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
 
 - **Voz**: un audio por escena en `jobs/<id>/audio/`. Se mide la duración real (ffprobe) y la escena se alarga si la
   locución no cabe. Solo se vuelve a sintetizar la escena cuya narración cambió (hash en `audio/<escena>.json`).
-- **Proveedores** (`--tts` o `TTS_PROVIDER`): `elevenlabs` (usa `/with-timestamps` para tiempos por palabra) y
-  `silent` (silencio con tiempos estimados, para probar sin gastar créditos). Para agregar otro (p. ej. Azure),
+- **Proveedores** (`--tts` o `TTS_PROVIDER`):
+  - `elevenlabs`: usa `/with-timestamps` para tiempos por palabra exactos.
+  - `kokoro`: local y gratis (voces `em_alex`, `em_santa`, `ef_dora`; `KOKORO_VOICE`). Instalar con
+    `npm run setup:kokoro` (Python 3 + ~350 MB desde GitHub). Se sintetiza por oración y los tiempos por palabra se
+    reparten dentro de cada oración. Si faltan las claves de ElevenLabs, se usa Kokoro automáticamente.
+  - `silent`: silencio con tiempos estimados, para probar sin voz. Para agregar otro (p. ej. Azure),
   implementa `TtsProvider` (`src/stages/tts/types.ts`) y regístralo en `src/stages/tts/index.ts`.
 - **Pronunciación**: `src/stages/tts/pronunciation.ts` (SUNAT, IGV, RUC…). Los subtítulos muestran el texto escrito.
 - **Subtítulos**: quemados, en páginas cortas, con la palabra actual resaltada en verde.

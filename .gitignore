@@ -6,3 +6,4 @@ out/
 !.env.example
 *.log
 .remotion-cache/
+models/

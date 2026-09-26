@@ -1,10 +1,12 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { env } from "../../config";
+import { log } from "../../log";
 import { hash, type Job } from "../../jobs/store";
 import { mediaDuration } from "../../media";
 import type { Storyboard } from "../../schemas/storyboard";
 import type { SceneAudio } from "../compose";
 import { ElevenLabsProvider } from "./elevenlabs";
+import { KokoroProvider } from "./kokoro";
 import { mapTimings, toSpoken } from "./pronunciation";
 import { SilentProvider } from "./silent";
 import type { TtsProvider } from "./types";
@@ -12,10 +14,17 @@ import type { TtsProvider } from "./types";
 /** Proveedores disponibles. Para agregar uno (p. ej. Azure): implementa TtsProvider y añádelo aquí. */
 const PROVIDERS: Record<string, () => TtsProvider> = {
   elevenlabs: () => new ElevenLabsProvider(),
+  kokoro: () => new KokoroProvider(),
   silent: () => new SilentProvider(),
 };
 
-export function getProvider(id = env.TTS_PROVIDER): TtsProvider {
+export function getProvider(requested?: string): TtsProvider {
+  let id = requested ?? env.TTS_PROVIDER;
+  // Sin claves de ElevenLabs, usar Kokoro local si está instalado (solo cuando no se pidió explícitamente).
+  if (!requested && id === "elevenlabs" && !(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID)) {
+    log.warn("Faltan ELEVENLABS_API_KEY/ELEVENLABS_VOICE_ID: se usa Kokoro (local)");
+    id = "kokoro";
+  }
   const make = PROVIDERS[id];
   if (!make) throw new Error(`Proveedor TTS desconocido: ${id} (disponibles: ${Object.keys(PROVIDERS).join(", ")})`);
   return make();

@@ -22,6 +22,10 @@ const EnvSchema = z.object({
   ELEVENLABS_API_KEY: optional,
   ELEVENLABS_VOICE_ID: optional,
   ELEVENLABS_MODEL: optional.transform((v) => v ?? "eleven_multilingual_v2"),
+  KOKORO_MODEL_DIR: optional.transform((v) => v ?? "./models/kokoro"),
+  KOKORO_VOICE: optional.transform((v) => v ?? "em_alex"),
+  KOKORO_SPEED: optional.transform((v) => Number(v ?? "1.0")),
+  KOKORO_PYTHON: optional.transform((v) => v ?? "python3"),
   JOBS_DIR: optional.transform((v) => v ?? "./jobs"),
   REMOTION_BROWSER_EXECUTABLE: optional,
 });
