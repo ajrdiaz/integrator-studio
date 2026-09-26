@@ -8,7 +8,7 @@ import { CURSOR_SCRIPT, Executor } from "./erp/executor";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Pausa al final de cada paso con el resultado visible (ahí se muestra el resaltado). */
-const HOLD_SEC = 1.4;
+const HOLD_SEC = 1.0;
 
 /**
  * Ejecuta el recording plan sin IA y graba la pantalla (screencast de Chrome, JPEG de alta calidad) a 1920x1080.
@@ -69,22 +69,32 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
       seed: 20260926,
       onClick: (x, y) => current?.clicks.push({ t: now(), x, y }),
       onFocus: (box) => current?.focus.push({ t: now(), box }),
+      onEmphasis: (box, start) => {
+        if (!current) return;
+        if (start) current.highlights.push({ start: now(), end: now(), box });
+        else current.highlights.at(-1)!.end = now();
+      },
     });
 
     for (const scene of plan.scenes) {
       const sceneStart = now();
       for (const step of scene.steps) {
         onProgress(`${scene.sceneId}/${step.id}: ${step.objective}`);
-        current = { sceneId: scene.sceneId, stepId: step.id, callout: step.callout, start: now(), end: 0, clicks: [], focus: [], holdAt: 0 };
-        for (const action of step.actions) await exec.run(action);
+        current = { sceneId: scene.sceneId, stepId: step.id, callout: step.callout, start: now(), end: 0, clicks: [], focus: [], highlights: [] };
+        // El último clic/selección del paso es el "clave": se resalta antes de hacerlo.
+        const keyIdx = step.actions.map((a) => a.type).lastIndexOf("click") >= step.actions.map((a) => a.type).lastIndexOf("select")
+          ? step.actions.map((a) => a.type).lastIndexOf("click")
+          : step.actions.map((a) => a.type).lastIndexOf("select");
+        const lastIsKey = keyIdx >= 0 && step.actions.slice(keyIdx + 1).every((a) => a.type === "wait");
+        for (const [i, action] of step.actions.entries()) await exec.run(action, lastIsKey && i === keyIdx);
         await assertTestEnvironment(page);
         if (blocked.length) throw new Error(`Navegación bloqueada fuera del ERP: ${blocked[0]}`);
         await sleep(300);
-        if (step.highlight) {
-          current.box = await exec.box(resolve(page, step.highlight).first()).catch(() => undefined);
-        }
-        current.holdAt = now();
+        // Si el paso termina escribiendo (no en un clic), se resalta el resultado durante la pausa final.
+        const box = !lastIsKey && step.highlight ? await exec.box(resolve(page, step.highlight).first()).catch(() => undefined) : undefined;
+        const holdStart = now();
         await sleep(HOLD_SEC * 1000);
+        if (box) current.highlights.push({ start: holdStart, end: now(), box });
         current.end = now();
         steps.push(current);
       }

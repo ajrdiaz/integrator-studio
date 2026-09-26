@@ -11,10 +11,9 @@ const step: RecordedStep = {
   callout: "Nueva Factura",
   start: 0,
   end: 5,
-  holdAt: 3.5,
   clicks: [],
   focus: [{ t: 1, box: { x: 100, y: 100, width: 150, height: 30 } }],
-  box,
+  highlights: [{ start: 3.5, end: 4.6, box }],
 };
 
 describe("cámara", () => {
@@ -23,6 +22,7 @@ describe("cámara", () => {
     expect(focusAt([step], 0.8)?.x).toBe(100); // anticipa 0,35 s
     expect(focusAt([step], 4)).toEqual(box);
     expect(focusAt([step], 6)).toBeNull();
+    expect(focusAt([step], 3.4)).toEqual(box); // la cámara llega un poco antes del resaltado
   });
 
   it("en 16:9 hace zoom moderado sin dejar bordes vacíos", () => {

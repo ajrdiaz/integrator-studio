@@ -11,7 +11,8 @@ export interface Camera {
 export function focusAt(steps: RecordedStep[], t: number): Box | null {
   const step = steps.find((s) => t >= s.start && t < s.end);
   if (!step) return null;
-  if (t >= step.holdAt && step.box) return step.box;
+  const hl = step.highlights.find((h) => t >= h.start - 0.2 && t < h.end + 0.4);
+  if (hl) return hl.box;
   // Anticipa un poco el siguiente elemento para que la cámara llegue junto con el cursor.
   const f = [...step.focus].reverse().find((x) => x.t <= t + 0.35);
   return f?.box ?? null;

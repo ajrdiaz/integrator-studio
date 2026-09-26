@@ -48,7 +48,12 @@ export interface ExecOptions {
   onClick?: (x: number, y: number) => void;
   /** Se llama con la caja del elemento con el que se va a interactuar (para que la cámara lo siga). */
   onFocus?: (box: { x: number; y: number; width: number; height: number }) => void;
+  /** Resaltado antes del clic clave de un paso: se llama al llegar el cursor, antes de hacer clic. */
+  onEmphasis?: (box: { x: number; y: number; width: number; height: number }, start: boolean) => void;
 }
+
+/** Duración de la pausa con el elemento resaltado antes del clic clave (segundos). */
+export const EMPHASIS_SEC = 1.1;
 
 /** Ejecuta acciones del recording plan. Lo usan el explorador (rápido) y la grabación (cinemático). */
 export class Executor {
@@ -94,10 +99,15 @@ export class Executor {
     return box;
   }
 
-  private async click(loc: Locator) {
+  private async click(loc: Locator, emphasize = false) {
     await loc.waitFor({ state: "visible", timeout: 15000 });
     if (this.opts.cinematic) {
-      await this.moveTo(loc);
+      const box = await this.moveTo(loc);
+      if (emphasize) {
+        this.opts.onEmphasis?.(box, true);
+        await sleep(EMPHASIS_SEC * 1000);
+        this.opts.onEmphasis?.(box, false);
+      }
       this.opts.onClick?.(this.x, this.y);
       await this.page.mouse.down();
       await sleep(70);
@@ -108,7 +118,8 @@ export class Executor {
     }
   }
 
-  async run(action: Action) {
+  /** `emphasize`: resaltar el elemento antes de hacer clic (solo en modo grabación). */
+  async run(action: Action, emphasize = false) {
     const page = this.page;
     switch (action.type) {
       case "goto": {
@@ -118,7 +129,7 @@ export class Executor {
         break;
       }
       case "click":
-        await this.click(resolve(page, action.target).first());
+        await this.click(resolve(page, action.target).first(), emphasize);
         break;
       case "fill": {
         const loc = resolve(page, action.target).first();
@@ -140,10 +151,10 @@ export class Executor {
         const loc = resolve(page, action.target).first();
         const tag = await loc.evaluate((el) => el.tagName).catch(() => "");
         if (tag === "SELECT") {
-          await this.click(loc);
+          await this.click(loc, emphasize);
           await loc.selectOption({ label: action.option });
         } else {
-          await this.click(loc);
+          await this.click(loc, emphasize);
           await sleep(this.opts.cinematic ? 350 : 150);
           await this.click(page.getByRole("option", { name: action.option }).first());
         }

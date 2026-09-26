@@ -82,10 +82,8 @@ export interface RecordedStep {
   clicks: { t: number; x: number; y: number }[];
   /** Elementos con los que se interactúa, en orden (la cámara los sigue). */
   focus: { t: number; box: { x: number; y: number; width: number; height: number } }[];
-  /** Momento en que empieza la pausa final con el resultado visible (se muestra el resaltado). */
-  holdAt: number;
-  /** Caja del elemento resaltado en píxeles de la grabación (1920x1080). */
-  box?: { x: number; y: number; width: number; height: number };
+  /** Ventanas de resaltado (anillo + callout): antes del clic clave del paso, o sobre el resultado al final. */
+  highlights: { start: number; end: number; box: { x: number; y: number; width: number; height: number } }[];
 }
 
 export interface Recording {

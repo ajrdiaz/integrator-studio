@@ -40,11 +40,15 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
   );
 
   // Resaltado + callout durante la pausa final de cada paso.
-  const step = screen.steps.find((s) => t >= s.holdAt && t < s.end + 0.3 && s.box);
+  const step = screen.steps.find((s) => s.highlights.some((h) => t >= h.start && t < h.end + 0.25));
+  const hl = step?.highlights.find((h) => t >= h.start && t < h.end + 0.25);
   let overlay: React.ReactNode = null;
-  if (step?.box) {
-    const b = project(step.box, cam, out);
-    const p = interpolate(t, [step.holdAt, step.holdAt + 0.35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  if (step && hl) {
+    const b = project(hl.box, cam, out);
+    const p = Math.min(
+      interpolate(t, [hl.start, hl.start + 0.3], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+      interpolate(t, [hl.end, hl.end + 0.25], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    );
     const pad = 10 * u;
     const bubbleAbove = b.y > height * 0.3;
     const bubbleTop = bubbleAbove ? b.y - pad - 22 * u : b.y + b.height + pad + 22 * u;

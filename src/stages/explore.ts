@@ -26,7 +26,8 @@ Método de trabajo:
 - Usa snapshot (árbol de accesibilidad) para leer la página; screenshot solo cuando el árbol no alcance.
 - Selectores: prefiere {role, name} (p. ej. role "button", name "Guardar"), luego label, placeholder o text. Usa css solo como último recurso. Si hay varias coincidencias, usa "within" o "nth".
 - Cada acción exitosa (click, fill, select, press, wait, goto) queda registrada como pendiente. Cuando el objetivo de un paso se cumpla, llama commit_step con su id y el elemento a resaltar: esas acciones pasan al plan.
-- El plan se re-ejecutará tal cual desde el inicio de sesión: evita clics de exploración innecesarios. Si te desviaste, llama restart (vuelve al estado del último paso confirmado) y repite solo lo necesario.
+- El plan se re-ejecutará tal cual desde el inicio de sesión y se verá en el video: no debe incluir búsquedas fallidas ni clics de prueba. Si exploraste de más, pasa en commit_step la lista limpia de acciones (se verifica sola) o usa restart y repite solo lo necesario.
+- Asegúrate de que cada paso deja el formulario en un estado válido para los siguientes (campos obligatorios, tipo de documento del cliente compatible con el comprobante, etc.).
 - Para esperar a que algo aparezca, agrega una acción wait con el elemento esperado; no uses esperas fijas largas.
 - Sé eficiente: no describas cada acción, simplemente ejecútalas.`;
 
@@ -115,11 +116,33 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
       tool(
         "commit_step",
         "Confirma que el paso indicado quedó completo: las acciones pendientes pasan a ese paso del plan.",
-        { stepId: z.string(), highlight: (LocatorSpec as z.ZodType<LocatorSpec>).optional().describe("Elemento a resaltar en el video para este paso") },
+        {
+          stepId: z.string(),
+          highlight: (LocatorSpec as z.ZodType<LocatorSpec>).optional().describe("Elemento a resaltar en el video si el paso termina escribiendo o eligiendo (si termina en un clic, se resalta ese botón automáticamente)"),
+          actions: z
+            .array(Action)
+            .optional()
+            .describe("Opcional: lista final y limpia de acciones del paso (sin búsquedas fallidas ni clics de prueba). Se verifica re-ejecutándola desde el último paso confirmado."),
+        },
         async (a) => {
           const step = currentScene?.steps.find((st) => st.id === a.stepId);
           if (!currentScene || !step) return text(`El paso ${a.stepId} no pertenece a la escena actual.`);
           if (committed.some((c) => c.step.id === a.stepId && c.sceneId === currentScene!.id)) return text(`El paso ${a.stepId} ya estaba confirmado.`);
+          if (a.actions) {
+            // Verifica la versión limpia desde cero antes de aceptarla.
+            await s.context.close();
+            s = await newSession();
+            pending = [];
+            for (const [i, action] of a.actions.entries()) {
+              try {
+                await s.exec.run(action);
+                await assertTestEnvironment(s.page);
+              } catch (e) {
+                return text(`La lista limpia falló en la acción ${i + 1} (${action.type}): ${(e as Error).message.split("\n")[0]}. El navegador quedó en ese punto; corrige y vuelve a intentar.`);
+              }
+              pending.push(action);
+            }
+          }
           if (a.highlight) {
             const visible = await resolve(s.page, a.highlight).first().isVisible().catch(() => false);
             if (!visible) return text(`El elemento a resaltar (${describeSpec(a.highlight)}) no está visible ahora. Elige otro o no lo indiques.`);

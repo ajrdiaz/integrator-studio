@@ -58,7 +58,7 @@ export function compose(sb: Storyboard, opts: ComposeOptions = {}): Timeline {
             ...st,
             start: st.start - seg.start,
             end: st.end - seg.start,
-            holdAt: st.holdAt - seg.start,
+            highlights: st.highlights.map((h) => ({ ...h, start: h.start - seg.start, end: h.end - seg.start })),
             clicks: st.clicks.map((c) => ({ ...c, t: c.t - seg.start })),
             focus: st.focus.map((f) => ({ ...f, t: f.t - seg.start })),
           })),
