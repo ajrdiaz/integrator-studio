@@ -15,6 +15,7 @@ const EnvSchema = z.object({
   ERP_URL: optional,
   ERP_USER: optional,
   ERP_PASSWORD: optional,
+  ERP_COMPANY: optional,
   ERP_ENV: optional,
   ERP_PROD_HOSTS: optional,
   TTS_PROVIDER: optional.transform((v) => v ?? "elevenlabs"),
