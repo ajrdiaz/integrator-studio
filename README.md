@@ -16,7 +16,7 @@ Cada video es una carpeta reproducible en `jobs/<id>/` y cada etapa se puede rea
 | 1 | Storyboard (Claude) + render de promos motion en 16:9 | ✅ |
 | 2 | Voz (ElevenLabs), subtítulos quemados, música con ducking, 16:9 / 9:16 / 1:1 | ✅ (falta probar con la clave de ElevenLabs) |
 | 3 | Agente explorador del ERP (Claude Agent SDK + Playwright) y grabación determinista | pendiente |
-| 4 | Interfaz web: edición del storyboard, regeneración por etapa, versiones | pendiente |
+| 4 | Interfaz web: edición del storyboard, regeneración por etapa, versiones | ✅ |
 
 ## Requisitos
 
@@ -51,6 +51,23 @@ npm run studio         # Remotion Studio para previsualizar plantillas
 
 Los secretos nunca se escriben en código ni en logs: `src/log.ts` enmascara sus valores en toda salida y en los
 JSON que se guardan en `jobs/`.
+
+## Interfaz web (local)
+
+```bash
+npm run web          # compila la interfaz y abre el servidor en http://localhost:3000
+npm run web:dev      # desarrollo: API en :3000 + Vite con recarga en :5173
+```
+
+- **Nuevo video**: escribe el pedido; Claude escribe solo el guion para que lo revises antes de producir.
+- **Escenas / JSON**: edita textos, narración y duración por escena, o el JSON completo (validado con el mismo
+  esquema zod que usa el pipeline). Los errores se muestran antes de guardar.
+- **Vista previa instantánea** con el Player de Remotion en 16:9, 9:16 y 1:1: se compone en el navegador con los
+  cambios sin guardar y reutiliza la voz de las escenas cuya narración no cambió.
+- **Producir**: formatos, voz (automática, ElevenLabs, Kokoro, silencio o sin voz), "Solo render" y "Reescribir guion".
+  Al cambiar una frase, solo se regenera la voz de esa escena, la composición y el render.
+- **Regenerar voz** por escena, **progreso en vivo** y **versiones** del guion (restaurables) y de los renders.
+- El servidor escucha solo en `127.0.0.1` (cámbialo con `HOST`/`PORT`). Los trabajos se procesan en fila, uno a la vez.
 
 ## Uso desde la terminal
 
@@ -120,6 +137,8 @@ src/
   stages/compose.ts      storyboard (+ audios) → timeline en frames
   stages/render.ts       bundle de Remotion + render por formato
   jobs/store.ts          carpeta del job, versiones, hashes
+  server/                API HTTP + SSE de progreso para la interfaz web
+web/                     interfaz (React + Vite + @remotion/player)
 remotion/
   Root.tsx               composiciones Video-16x9 / Video-9x16 / Video-1x1
   Video.tsx              intro + escenas + cierre CTA
@@ -148,3 +167,8 @@ fixtures/                storyboards de ejemplo (y sus timelines para Remotion S
 - Verde principal `#009b72`, tipografía Poppins (archivos locales en `assets/fonts`, licencia OFL).
 - `assets/logo.svg` es un **placeholder**: reemplázalo por el logo oficial con el mismo nombre.
 - Intro (3 s) y cierre con CTA "Asesoría gratuita · WhatsApp +51 941 427 296 · integrator.pe" (4 s) son fijos.
+
+## Licencia de Remotion
+
+Remotion es gratuito para personas y empresas de hasta 3 empleados; empresas más grandes necesitan una
+[licencia de empresa](https://www.remotion.dev/license).

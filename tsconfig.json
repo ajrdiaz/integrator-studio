@@ -11,7 +11,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
-  "include": ["src", "remotion", "scripts", "tests", "remotion.config.ts", "vitest.config.ts"]
+  "include": ["src", "remotion", "scripts", "web/src", "web/vite.config.ts", "tests", "remotion.config.ts", "vitest.config.ts"]
 }

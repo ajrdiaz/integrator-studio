@@ -7,3 +7,4 @@ out/
 *.log
 .remotion-cache/
 models/
+web/dist/

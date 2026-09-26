@@ -133,7 +133,7 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
         storyboardVersion: job.manifest.storyboardVersion,
       });
       job.save();
-      onProgress("render", `listo → ${job.path(rel)}`);
+      onProgress("render", `listo → ${rel}`);
     }
     job.setStage("render", { status: "done", inputHash: renderHash, error: undefined });
   } catch (e) {
