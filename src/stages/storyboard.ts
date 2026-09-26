@@ -1,8 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { BetaContentBlock, BetaMessage, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import { env, requireEnv } from "../config";
-import { log } from "../log";
+import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
+import { env } from "../config";
+import { log, redact } from "../log";
 import type { ParsedRequest } from "../request";
 import { INTRO_SEC, OUTRO_SEC, Storyboard, checkStoryboard } from "../schemas/storyboard";
 import { TEMPLATE_DOCS, TEMPLATE_IDS } from "../schemas/templates";
@@ -27,12 +26,14 @@ Estructura:
 
 Veracidad:
 - No inventes precios, cantidad de clientes, porcentajes ni promesas sobre Integrator que no estén en el pedido o en las fuentes consultadas.
+- Si una fuente no se pudo leer, no afirmes qué incluye el servicio, qué cuesta ni cómo se cobra: usa mensajes que no dependan de esos datos.
 - Los valores de dashboards y ejemplos son datos ilustrativos de una empresa ficticia; que se vean realistas (soles, S/).
 
 Plantillas motion disponibles (campo "template"):
 ${TEMPLATE_IDS.map((id) => `- ${id}: ${TEMPLATE_DOCS[id]}`).join("\n")}
 
-Ids de escena: kebab-case, prefijados con el orden ("s1-gancho", "s2-...").`;
+Ids de escena: kebab-case, prefijados con el orden ("s1-gancho", "s2-...").
+Solo puedes consultar ${SOURCE_DOMAINS.join(" y ")}. No uses ninguna otra herramienta.`;
 
 function userPrompt(req: ParsedRequest): string {
   const duration = req.durationSec ?? (req.kind === "promo" ? 30 : 75);
@@ -49,68 +50,58 @@ function userPrompt(req: ParsedRequest): string {
   ].join("\n");
 }
 
-function textOf(content: BetaContentBlock[]): string {
-  return content
-    .filter((b): b is Extract<BetaContentBlock, { type: "text" }> => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+/** Una consulta al Claude Agent SDK con salida estructurada. Solo búsqueda web / fetch en los dominios permitidos. */
+async function ask(prompt: string, transcript: unknown[]): Promise<unknown> {
+  const messages = query({
+    prompt,
+    options: {
+      systemPrompt: SYSTEM_PROMPT,
+      model: env.CLAUDE_MODEL,
+      tools: ["WebSearch", "WebFetch"],
+      allowedTools: ["WebSearch", ...SOURCE_DOMAINS.map((d) => `WebFetch(domain:${d})`)],
+      permissionMode: "dontAsk",
+      settingSources: [],
+      maxTurns: 25,
+      outputFormat: { type: "json_schema", schema: z.toJSONSchema(Storyboard, { target: "draft-7" }) as Record<string, unknown> },
+      env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "integrator-video-studio/0.1" },
+    },
+  });
+
+  let result: Extract<SDKMessage, { type: "result" }> | undefined;
+  for await (const msg of messages) {
+    if (msg.type === "assistant") {
+      for (const block of msg.message.content) {
+        if (block.type === "tool_use") log.info(`  · ${block.name} ${redact(JSON.stringify(block.input)).slice(0, 120)}`);
+      }
+      transcript.push({ role: "assistant", content: msg.message.content });
+    } else if (msg.type === "user") {
+      transcript.push({ role: "tool", content: msg.message.content });
+    } else if (msg.type === "result") {
+      result = msg;
+    }
+  }
+  if (!result) throw new Error("El agente terminó sin resultado.");
+  transcript.push({ result: result.subtype, cost_usd: result.total_cost_usd, turns: result.num_turns });
+  if (result.subtype !== "success") {
+    throw new Error(`El agente no completó el guion (${result.subtype}).`);
+  }
+  if (result.structured_output !== undefined) return result.structured_output;
+  return JSON.parse(result.result);
 }
 
-/** Genera el storyboard con Claude (salida estructurada + búsqueda restringida a los manuales). */
+/** Genera el storyboard con el Claude Agent SDK (usa tu sesión de Claude Code o ANTHROPIC_API_KEY si está definida). */
 export async function generateStoryboard(req: ParsedRequest): Promise<{ storyboard: Storyboard; transcript: unknown[] }> {
-  const client = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY", "para generar el guion con Claude") });
-  const messages: BetaMessageParam[] = [{ role: "user", content: userPrompt(req) }];
   const transcript: unknown[] = [];
-
-  const call = async (): Promise<BetaMessage> => {
-    const stream = client.beta.messages.stream({
-      model: env.CLAUDE_MODEL,
-      max_tokens: 32000,
-      thinking: { type: "adaptive" },
-      system: SYSTEM_PROMPT,
-      messages,
-      tools: [
-        { type: "web_search_20260209", name: "web_search", allowed_domains: SOURCE_DOMAINS, max_uses: 4 },
-        { type: "web_fetch_20260209", name: "web_fetch", allowed_domains: SOURCE_DOMAINS, max_uses: 6 },
-      ],
-      output_config: { format: zodOutputFormat(Storyboard), effort: "high" },
-      ...(env.CLAUDE_FALLBACKS === "default"
-        ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
-        : {}),
-    });
-    const msg = await stream.finalMessage();
-    transcript.push({ stop_reason: msg.stop_reason, model: msg.model, usage: msg.usage, content: msg.content });
-    return msg;
-  };
-
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const msg = await call();
-    if (msg.stop_reason === "refusal") {
-      throw new Error(`Claude rechazó generar el guion: ${JSON.stringify(msg.stop_details ?? {})}`);
-    }
-    if (msg.stop_reason === "pause_turn") {
-      // Herramientas de servidor (búsqueda) todavía trabajando: continuar el turno.
-      messages.push({ role: "assistant", content: msg.content });
-      continue;
-    }
-    if (msg.stop_reason === "max_tokens") throw new Error("El guion excedió max_tokens; pide un video más corto.");
-
-    const raw = textOf(msg.content);
-    let problems: string[];
-    try {
-      const parsed = Storyboard.safeParse(JSON.parse(raw));
-      if (parsed.success) {
-        problems = checkStoryboard(parsed.data);
-        if (!problems.length) return { storyboard: parsed.data, transcript };
-      } else {
-        problems = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
-      }
-    } catch (e) {
-      problems = [`JSON inválido: ${(e as Error).message}`];
-    }
+  let prompt = userPrompt(req);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const data = await ask(prompt, transcript);
+    const parsed = Storyboard.safeParse(data);
+    const problems = parsed.success
+      ? checkStoryboard(parsed.data)
+      : parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+    if (parsed.success && !problems.length) return { storyboard: parsed.data, transcript };
     log.warn(`Storyboard con errores, pidiendo corrección (${problems.length})`);
-    messages.push({ role: "assistant", content: msg.content });
-    messages.push({ role: "user", content: `Corrige estos problemas y devuelve el storyboard completo:\n- ${problems.join("\n- ")}` });
+    prompt = `${userPrompt(req)}\n\nEste es un intento anterior:\n${JSON.stringify(data)}\n\nCorrige estos problemas y devuelve el storyboard completo:\n- ${problems.join("\n- ")}`;
   }
   throw new Error("No se obtuvo un storyboard válido tras varios intentos.");
 }

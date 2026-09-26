@@ -21,6 +21,7 @@ Cada video es una carpeta reproducible en `jobs/<id>/` y cada etapa se puede rea
 ## Requisitos
 
 - Node.js ≥ 20
+- Claude Code con sesión iniciada (`claude` → `/login`), o `ANTHROPIC_API_KEY`
 - Chrome Headless Shell para Remotion. Si no se define `REMOTION_BROWSER_EXECUTABLE`, se usa el de Playwright
   (`$PLAYWRIGHT_BROWSERS_PATH`) o Remotion lo descarga la primera vez.
 - ffmpeg/ffprobe: vienen incluidos en `@remotion/compositor-*`; no hace falta instalarlos.
@@ -38,10 +39,9 @@ npm run studio         # Remotion Studio para previsualizar plantillas
 
 | Variable | Uso |
 |---|---|
-| `ANTHROPIC_API_KEY` | Generar el guion con Claude |
-| `CLAUDE_MODEL` | Modelo del guionista (por defecto `claude-opus-5`) |
+| `ANTHROPIC_API_KEY` | Opcional. Sin ella, el Claude Agent SDK usa la sesión de Claude Code de la máquina (`claude` → `/login`) |
+| `CLAUDE_MODEL` | Modelo del guionista (vacío = modelo por defecto de Claude Code) |
 | `CLAUDE_EXPLORER_MODEL` | Modelo del agente explorador (Fase 3; por defecto = `CLAUDE_MODEL`) |
-| `CLAUDE_FALLBACKS` | `default` (reintento en servidor con otro modelo si hay rechazo) u `off` |
 | `ERP_URL`, `ERP_USER`, `ERP_PASSWORD` | Entorno **demo** del ERP (Fase 3) |
 | `ERP_ENV` | Debe ser `demo` para permitir exploración/grabación |
 | `ERP_PROD_HOSTS` | Hosts de producción que nunca se tocan |
@@ -97,7 +97,7 @@ src/
   pipeline/index.ts      orquestador de etapas reanudables
   request.ts             interpreta el pedido (tipo, tema, duración, formatos)
   schemas/               zod: storyboard, plantillas, timeline
-  stages/storyboard.ts   Claude: salida estructurada + web_search/web_fetch limitados a manuales.integrator.pe
+  stages/storyboard.ts   Claude Agent SDK: salida estructurada + WebSearch/WebFetch limitados a manuales.integrator.pe
   stages/compose.ts      storyboard (+ audios) → timeline en frames
   stages/render.ts       bundle de Remotion + render por formato
   jobs/store.ts          carpeta del job, versiones, hashes

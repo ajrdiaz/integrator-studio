@@ -10,9 +10,8 @@ const optional = z
 
 const EnvSchema = z.object({
   ANTHROPIC_API_KEY: optional,
-  CLAUDE_MODEL: optional.transform((v) => v ?? "claude-opus-5"),
+  CLAUDE_MODEL: optional,
   CLAUDE_EXPLORER_MODEL: optional,
-  CLAUDE_FALLBACKS: optional.transform((v) => (v === "off" ? "off" : "default")),
   ERP_URL: optional,
   ERP_USER: optional,
   ERP_PASSWORD: optional,
