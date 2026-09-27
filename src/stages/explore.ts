@@ -22,6 +22,7 @@ ${
     ? `- Cliente: usa EXCLUSIVAMENTE el cliente "${sample}" (búscalo escribiendo ese texto/RUC en el campo Cliente). Si no aparece, llama report_blocked; no elijas otro.`
     : `- El video será público: no muestres datos de personas reales. Para el cliente, busca uno genérico o de prueba (p. ej. "CLIENTES VARIOS", "DEMO", "PRUEBA"). Si solo hay clientes con nombre de persona o empresa real, llama report_blocked pidiendo que se cree un cliente de prueba.`
 }
+- Representante de Venta (o vendedor): elige el primero de la lista. No crees representantes ni otros datos maestros.
 - Usa productos y almacenes que ya existan en el entorno de prueba. Si debes escribir datos nuevos, usa valores ficticios evidentes (p. ej. "Cliente Demo", RUC 20000000001).
 - Solo puedes navegar dentro del ERP; las herramientas bloquean cualquier otro dominio.
 - Si no logras completar un paso tras intentos razonables, llama report_blocked explicando exactamente dónde te trabaste y detente.
@@ -31,7 +32,7 @@ Método de trabajo:
 - Selectores: prefiere {role, name} (p. ej. role "button", name "Guardar"), luego label, placeholder o text. Usa css solo como último recurso. Si hay varias coincidencias, usa "within" o "nth".
 - Cada acción exitosa (click, fill, select, press, wait, goto) queda registrada como pendiente. Cuando el objetivo de un paso se cumpla, llama commit_step con su id y el elemento a resaltar: esas acciones pasan al plan.
 - El plan se re-ejecutará tal cual desde el inicio de sesión y se verá en el video: no debe incluir búsquedas fallidas ni clics de prueba. Si exploraste de más, pasa en commit_step la lista limpia de acciones (se verifica sola) o usa restart y repite solo lo necesario.
-- Asegúrate de que cada paso deja el formulario en un estado válido para los siguientes (campos obligatorios como "Representante de Venta" —cualquiera sirve—, tipo de documento del cliente compatible con el comprobante, etc.).
+- Asegúrate de que cada paso deja el formulario en un estado válido para los siguientes (campos obligatorios como "Representante de Venta", tipo de documento del cliente compatible con el comprobante, etc.).
 - Cumple el objetivo de la escena de verdad, aunque los pasos no lo digan: si agregas una línea, confírmala (botón "Agregar", Enter) y comprueba que aparece en la tabla. Si el ERP muestra otro nombre para un botón del tutorial (p. ej. "Actualizar" en vez de "Grabar y Continuar" porque el documento ya se registró), usa el equivalente.
 - Después de elegir una opción en un combo, comprueba que el desplegable se cerró antes de escribir en otro campo.
 - Al terminar cada escena, el plan se re-ejecuta de corrido desde cero y se te pide revisar el resultado. Si una escena anterior dejó un estado que no sirve, llama report_blocked con previousScene: true explicando qué debe corregirse allí.

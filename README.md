@@ -151,7 +151,12 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
 **Seguridad**: solo `ERP_ENV=demo`; navegación limitada al host de `ERP_URL` (otros dominios solo GET de recursos);
 `ERP_PROD_HOSTS` como lista negra; empresa fija `ERP_COMPANY`; antes de cada paso se verifica el aviso
 "Ambiente de Prueba" y si no aparece se detiene; el login usa `.env` y el agente nunca ve la contraseña.
-Opcional: `ERP_SAMPLE_CUSTOMER` = cliente ficticio que el agente debe usar en los videos.
+Opcional: `ERP_SAMPLE_CUSTOMER` = cliente ficticio que el agente debe usar en los videos. Como Representante de Venta,
+el agente elige el primero de la lista (no crea datos maestros).
+
+Al terminar la exploración, el guion se ajusta a la interfaz real: si la narración pide tocar un botón que no existe
+("Haz clic en Nueva Factura") y el paso hizo clic en uno solo con otro nombre ("Nuevo Registro"), se reemplaza en la
+narración y el callout (nueva versión del guion; solo se regenera la voz de esos pasos).
 
 ## Revisión automática
 

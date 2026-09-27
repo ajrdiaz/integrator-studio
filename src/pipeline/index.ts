@@ -7,6 +7,7 @@ import type { Timeline } from "../schemas/timeline";
 import { existsSync, readdirSync } from "node:fs";
 import { ASSETS_DIR } from "../config";
 import { compose, type SceneAudio } from "../stages/compose";
+import { alignScript } from "../stages/align";
 import { explore } from "../stages/explore";
 import { record } from "../stages/record";
 import { RecordingPlan, type Recording } from "../schemas/recording-plan";
@@ -107,6 +108,13 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
       }
       job.setStage("explore", { status: "done", inputHash: exploreHash, error: undefined });
       job.invalidateFrom("record");
+      // El guion se escribió sin ver el ERP: nombres de botones que no existen se cambian por los reales.
+      // (Solo cambian narración y callouts; el plan depende de los objetivos, así que sigue siendo válido.)
+      const aligned = alignScript(storyboard, plan);
+      if (aligned.changes.length) {
+        storyboard = job.writeStoryboard(aligned.storyboard);
+        for (const c of aligned.changes) onProgress("explore", `guion ajustado en ${c.stepId}: «${c.from}» → «${c.to}»`);
+      }
     }
     if (stop("explore")) return job;
 

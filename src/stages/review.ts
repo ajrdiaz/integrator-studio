@@ -68,7 +68,7 @@ export function mentions(narration: string): string[] {
 }
 
 /** Textos de los elementos que usa un paso del plan (nombres, etiquetas, opciones elegidas). */
-function targetTexts(step: PlanStep): string[] {
+export function targetTexts(step: PlanStep): string[] {
   const out: string[] = [];
   const add = (t?: LocatorSpec) => {
     if (!t) return;
@@ -84,7 +84,7 @@ function targetTexts(step: PlanStep): string[] {
 }
 
 const CLICKABLE = ["button", "link", "menuitem", "tab"];
-const clickedNames = (step: PlanStep) =>
+export const clickedNames = (step: PlanStep) =>
   step.actions.flatMap((a) => (a.type === "click" && a.target.name && CLICKABLE.includes(a.target.role ?? "") ? [a.target.name] : []));
 
 /**
