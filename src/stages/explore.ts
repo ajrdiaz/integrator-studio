@@ -32,6 +32,9 @@ Método de trabajo:
 - Cada acción exitosa (click, fill, select, press, wait, goto) queda registrada como pendiente. Cuando el objetivo de un paso se cumpla, llama commit_step con su id y el elemento a resaltar: esas acciones pasan al plan.
 - El plan se re-ejecutará tal cual desde el inicio de sesión y se verá en el video: no debe incluir búsquedas fallidas ni clics de prueba. Si exploraste de más, pasa en commit_step la lista limpia de acciones (se verifica sola) o usa restart y repite solo lo necesario.
 - Asegúrate de que cada paso deja el formulario en un estado válido para los siguientes (campos obligatorios como "Representante de Venta" —cualquiera sirve—, tipo de documento del cliente compatible con el comprobante, etc.).
+- Cumple el objetivo de la escena de verdad, aunque los pasos no lo digan: si agregas una línea, confírmala (botón "Agregar", Enter) y comprueba que aparece en la tabla. Si el ERP muestra otro nombre para un botón del tutorial (p. ej. "Actualizar" en vez de "Grabar y Continuar" porque el documento ya se registró), usa el equivalente.
+- Después de elegir una opción en un combo, comprueba que el desplegable se cerró antes de escribir en otro campo.
+- Al terminar cada escena, el plan se re-ejecuta de corrido desde cero y se te pide revisar el resultado. Si una escena anterior dejó un estado que no sirve, llama report_blocked con previousScene: true explicando qué debe corregirse allí.
 - Para esperar a que algo aparezca, agrega una acción wait con el elemento esperado; no uses esperas fijas largas. En buscadores/autocompletar, después de escribir agrega un wait de la opción esperada y luego haz clic en ella (la grabación escribe más lento que tú).
 - Evita selectores css por posición (p. ej. "primera fila"); identifica filas por su texto (número de documento, cliente).
 - Sé eficiente: no describas cada acción, simplemente ejecútalas.`;
@@ -59,8 +62,17 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
   const committed: { sceneId: string; step: PlanStep }[] = [];
   let pending: Action[] = [];
   let blocked: RecordingPlan["blocked"];
+  /** El agente culpa a la escena anterior del bloqueo (su estado final no sirve). */
+  let blamePrevious = false;
   let currentScene: ScreenScene | undefined;
+  /** La escena pasó la revisión tras re-ejecutar el plan; `dirty` = hubo cambios desde esa re-ejecución. */
+  let verified = false;
+  let dirty = true;
   let shot = 0;
+
+  const dropScenes = (ids: string[]) => {
+    for (let i = committed.length - 1; i >= 0; i--) if (ids.includes(committed[i]!.sceneId)) committed.splice(i, 1);
+  };
 
   const newSession = async (): Promise<Session> => {
     const context = await browser.newContext({ viewport: VIEWPORT, locale: "es-PE" });
@@ -155,6 +167,7 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
           committed.push({ sceneId: currentScene.id, step: { id: step.id, objective: step.objective, callout: step.callout, actions: pending, highlight: a.highlight } });
           onProgress(`${currentScene.id}/${step.id}: ${pending.length} acción(es) confirmadas`);
           pending = [];
+          dirty = true;
           return text(`Paso ${a.stepId} confirmado.`);
         },
       ),
@@ -164,59 +177,140 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
         s = await newSession();
         return text(`Reiniciado. URL: ${s.page.url()}`);
       }),
-      tool("report_blocked", "Informa que no se puede completar un paso. Después de llamarla, termina.", { stepId: z.string(), reason: z.string() }, async (a) => {
-        const file = `explore/blocked-${a.stepId}.jpg`;
-        writeFileSync(job.path(file), await s.page.screenshot({ type: "jpeg", quality: 70 }));
-        blocked = { sceneId: currentScene?.id ?? "?", stepId: a.stepId, reason: a.reason, screenshot: file };
-        return text("Registrado. Termina ahora.");
+      tool("reset_scene", "Descarta todos los pasos confirmados de la escena actual y vuelve al estado en que empezó, para rehacerlos.", {}, async () => {
+        if (!currentScene) return text("No hay escena en curso.");
+        dropScenes([currentScene.id]);
+        await s.context.close();
+        pending = [];
+        dirty = true;
+        s = await newSession();
+        return text(`Escena ${currentScene.id} reiniciada: vuelve a confirmar sus pasos. URL: ${s.page.url()}`);
       }),
+      tool("scene_ok", "Tras la re-ejecución del plan, confirma que el estado final cumple el objetivo de la escena y sirve para la siguiente.", {}, async () => {
+        if (dirty) return text("Hubo cambios desde la última re-ejecución: termina tu turno y el plan se volverá a verificar.");
+        verified = true;
+        return text("Escena verificada. Termina ahora.");
+      }),
+      tool(
+        "report_blocked",
+        "Informa que no se puede completar un paso. Después de llamarla, termina.",
+        {
+          stepId: z.string(),
+          reason: z.string(),
+          previousScene: z.boolean().optional().describe("true si el problema es el estado que dejó la escena anterior (en reason, explica qué debe corregirse allí)"),
+        },
+        async (a) => {
+          const file = `explore/blocked-${a.stepId}.jpg`;
+          writeFileSync(job.path(file), await s.page.screenshot({ type: "jpeg", quality: 70 }));
+          blocked = { sceneId: currentScene?.id ?? "?", stepId: a.stepId, reason: a.reason, screenshot: file };
+          blamePrevious = a.previousScene === true;
+          return text("Registrado. Termina ahora.");
+        },
+      ),
     ],
   });
 
   const transcript: unknown[] = [];
+  /** Corre (o retoma, con `resume`) la conversación del agente; devuelve el id de sesión para retomarla. */
+  const runAgent = async (prompt: string, resume?: string) => {
+    let sessionId = resume;
+    const messages = query({
+      prompt,
+      options: {
+        systemPrompt: SYSTEM_PROMPT,
+        model: env.CLAUDE_EXPLORER_MODEL ?? env.CLAUDE_MODEL,
+        tools: [],
+        mcpServers: { erp: server },
+        allowedTools: ["mcp__erp__*"],
+        permissionMode: "dontAsk",
+        settingSources: [],
+        maxTurns: 120,
+        resume,
+        env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "integrator-video-studio/0.1" },
+      },
+    });
+    for await (const msg of messages) {
+      sessionId = msg.session_id ?? sessionId;
+      if (msg.type === "assistant") {
+        transcript.push({ role: "assistant", content: msg.message.content });
+        for (const b of msg.message.content) {
+          if (b.type === "tool_use") log.info(`  · ${b.name.replace("mcp__erp__", "")} ${redact(JSON.stringify(b.input)).slice(0, 140)}`);
+        }
+      } else if (msg.type === "result") {
+        transcript.push({ result: msg.subtype, cost_usd: msg.total_cost_usd, turns: msg.num_turns });
+      }
+    }
+    return sessionId;
+  };
+  const missingSteps = (scene: ScreenScene) => {
+    const done = new Set(committed.filter((c) => c.sceneId === scene.id).map((c) => c.step.id));
+    return scene.steps.filter((st) => !done.has(st.id));
+  };
+
+  /** Correcciones que pidió la escena siguiente, por escena. Cada escena se rehace como máximo una vez por esto. */
+  const fixes = new Map<string, string>();
   try {
-    for (const scene of screens) {
+    for (let i = 0; i < screens.length; ) {
+      const scene = screens[i]!;
       currentScene = scene;
       onProgress(`${scene.id}: explorando "${scene.goal}"`);
+      const fix = fixes.get(scene.id);
       const prompt = [
         `Escena: ${scene.id}`,
         `Objetivo: ${scene.goal}`,
         `Pasos a completar, en orden (usa estos ids en commit_step):`,
         ...scene.steps.map((st) => `- ${st.id}: ${st.objective}`),
+        ...(fix ? ["", `IMPORTANTE: esta escena ya se exploró una vez, pero la escena siguiente no pudo continuar por el estado que dejó. Motivo: ${fix}`] : []),
         "",
         "Parte del estado actual del navegador (sesión iniciada, pasos anteriores ya ejecutados). Confirma cada paso con commit_step.",
       ].join("\n");
-      const messages = query({
-        prompt,
-        options: {
-          systemPrompt: SYSTEM_PROMPT,
-          model: env.CLAUDE_EXPLORER_MODEL ?? env.CLAUDE_MODEL,
-          tools: [],
-          mcpServers: { erp: server },
-          allowedTools: ["mcp__erp__*"],
-          permissionMode: "dontAsk",
-          settingSources: [],
-          maxTurns: 120,
-          env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "integrator-video-studio/0.1" },
-        },
-      });
-      for await (const msg of messages) {
-        if (msg.type === "assistant") {
-          transcript.push({ role: "assistant", content: msg.message.content });
-          for (const b of msg.message.content) {
-            if (b.type === "tool_use") log.info(`  · ${b.name.replace("mcp__erp__", "")} ${redact(JSON.stringify(b.input)).slice(0, 140)}`);
-          }
-        } else if (msg.type === "result") {
-          transcript.push({ result: msg.subtype, cost_usd: msg.total_cost_usd, turns: msg.num_turns });
-        }
+      dirty = true;
+      verified = false;
+      let sessionId = await runAgent(prompt);
+
+      // Verificación: re-ejecutar el plan de corrido desde cero (como la grabación) y que el agente revise el resultado.
+      for (let round = 0; round < 3 && !blocked && !verified && !missingSteps(scene).length; round++) {
+        onProgress(`${scene.id}: verificando el plan desde cero`);
+        await s.context.close();
+        pending = [];
+        s = await newSession();
+        dirty = false;
+        sessionId = await runAgent(
+          [
+            `Re-ejecuté el plan completo desde el inicio de sesión, de corrido, como se hará en la grabación. El navegador quedó al final de la escena ${scene.id}.`,
+            `Revisa con snapshot/screenshot que el estado cumple el objetivo ("${scene.goal}") y sirve para la escena siguiente (campos con los valores esperados, desplegables cerrados, líneas agregadas a la tabla, sin mensajes de error).`,
+            "- Si está bien, llama scene_ok y termina.",
+            "- Si no, llama reset_scene, rehaz los pasos de esta escena corrigiendo el problema (commit_step) y termina: se volverá a verificar.",
+          ].join("\n"),
+          sessionId,
+        );
+      }
+
+      if (blocked && blamePrevious && i > 0 && !fixes.has(screens[i - 1]!.id)) {
+        // La escena anterior dejó un estado inservible: se rehace con el motivo y luego se reintenta esta.
+        const prev = screens[i - 1]!;
+        onProgress(`${scene.id}: la escena anterior dejó un estado que no sirve; se rehace ${prev.id}`);
+        fixes.set(prev.id, blocked.reason);
+        dropScenes([prev.id, scene.id]);
+        blocked = undefined;
+        blamePrevious = false;
+        await s.context.close();
+        pending = [];
+        s = await newSession();
+        i--;
+        continue;
       }
       if (blocked) break;
-      const done = new Set(committed.filter((c) => c.sceneId === scene.id).map((c) => c.step.id));
-      const missing = scene.steps.filter((st) => !done.has(st.id));
+      const missing = missingSteps(scene);
       if (missing.length) {
         blocked = { sceneId: scene.id, stepId: missing[0]!.id, reason: `El agente terminó sin confirmar: ${missing.map((m) => m.id).join(", ")}` };
         break;
       }
+      if (!verified) {
+        blocked = { sceneId: scene.id, stepId: scene.steps.at(-1)!.id, reason: "Al re-ejecutar el plan desde cero, el agente no confirmó que la escena quedara bien (scene_ok)." };
+        break;
+      }
+      i++;
     }
   } finally {
     job.writeJson("logs/explore.transcript.json", transcript);

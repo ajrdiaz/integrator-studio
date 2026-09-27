@@ -103,14 +103,56 @@ export class Executor {
     return box;
   }
 
+  /** El punto del cursor cae sobre el elemento (o un hijo), no sobre algo que lo tapa (p. ej. un aviso flotante). */
+  private hits(loc: Locator, x = this.x, y = this.y) {
+    return loc
+      .evaluate((el, [x, y]) => {
+        const hit = document.elementFromPoint(x!, y!);
+        return !!hit && (el === hit || el.contains(hit));
+      }, [x, y])
+      .catch(() => true);
+  }
+
+  /** En modo grabación el clic va a coordenadas: espera a que nada tape el elemento (como hace Playwright al explorar). */
+  private async waitUncovered(loc: Locator) {
+    if (await this.hits(loc)) return;
+    const t0 = Date.now();
+    const [tx, ty] = [this.x, this.y];
+    // Aparta el cursor de lo que tapa: muchos avisos no se cierran mientras el mouse está encima.
+    const cover = await this.page.evaluate(([x, y]) => {
+      let el = document.elementFromPoint(x!, y!);
+      let top = el;
+      while (el && el !== document.body) {
+        const pos = getComputedStyle(el).position;
+        if (pos === "fixed" || pos === "absolute") top = el;
+        el = el.parentElement;
+      }
+      const r = top?.getBoundingClientRect();
+      return r ? { top: r.top, bottom: r.bottom } : undefined;
+    }, [this.x, this.y]);
+    if (cover) {
+      const y = cover.bottom + 24 < this.page.viewportSize()!.height ? cover.bottom + 24 : Math.max(4, cover.top - 24);
+      await this.page.mouse.move(this.x, y, { steps: 12 });
+      this.y = y;
+    }
+    while (!(await this.hits(loc, tx, ty))) {
+      if (Date.now() - t0 > 15000) throw new Error("Otro elemento (p. ej. un aviso) sigue tapando el elemento donde se debe hacer clic");
+      await sleep(250);
+    }
+    await this.moveTo(loc);
+    this.opts.onBusy?.(t0, Date.now());
+  }
+
   private async click(loc: Locator, emphasize = false) {
     await loc.waitFor({ state: "visible", timeout: 15000 });
     if (this.opts.cinematic) {
       const box = await this.moveTo(loc);
+      await this.waitUncovered(loc);
       if (emphasize) {
         this.opts.onEmphasis?.(box, true);
         await sleep(EMPHASIS_SEC * 1000);
         this.opts.onEmphasis?.(box, false);
+        await this.waitUncovered(loc);
       }
       this.opts.onClick?.(this.x, this.y);
       await this.page.mouse.down();
@@ -137,19 +179,17 @@ export class Executor {
         break;
       case "fill": {
         const loc = resolve(page, action.target).first();
-        if (this.opts.cinematic) {
-          await this.click(loc);
-          await page.keyboard.press("Control+A");
-          await page.keyboard.press("Backspace");
-          for (const ch of action.value) {
-            await page.keyboard.type(ch);
-            await sleep(55 + this.rand() * 75 + (ch === " " ? 40 : 0));
-          }
-        } else {
-          // Igual que la grabación (tecla por tecla) pero rápido: los buscadores reaccionan igual en ambos modos.
-          await loc.waitFor({ state: "visible", timeout: 15000 });
-          await loc.fill("");
-          await loc.pressSequentially(action.value, { delay: 25 });
+        // Igual en ambos modos (clic real, borrar, tecla por tecla): el clic cierra cualquier desplegable abierto
+        // y los buscadores reaccionan igual en la exploración y en la grabación.
+        await this.click(loc);
+        await page.keyboard.press("ControlOrMeta+A");
+        await page.keyboard.press("Backspace");
+        for (const ch of action.value) {
+          await page.keyboard.type(ch);
+          await sleep(this.opts.cinematic ? 55 + this.rand() * 75 + (ch === " " ? 40 : 0) : 25);
+          // Si otro elemento se roba el foco a mitad de camino, el resto del texto cae ahí (p. ej. el buscador de un combo).
+          const focused = await loc.evaluate((el) => el === document.activeElement || el.contains(document.activeElement)).catch(() => true);
+          if (!focused) throw new Error(`Mientras se escribía "${action.value}", el foco pasó a otro elemento: cierra desplegables abiertos o haz clic en el campo antes de escribir.`);
         }
         // Buscadores con "debounce": dar tiempo a que salga la petición antes de esperar la red.
         await sleep(700);
@@ -189,7 +229,8 @@ export class Executor {
       }
     }
     await this.settle();
-    if (this.opts.cinematic) await sleep(250 + this.rand() * 150);
+    // También en exploración: al re-ejecutar el plan de corrido, los desplegables necesitan terminar de abrirse/cerrarse.
+    await sleep(this.opts.cinematic ? 250 + this.rand() * 150 : 250);
   }
 
   /** Caja del elemento (coordenadas del viewport = coordenadas del video). */

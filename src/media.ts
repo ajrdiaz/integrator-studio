@@ -21,7 +21,11 @@ function binDir(): string | undefined {
 export function runFf(tool: "ffmpeg" | "ffprobe", args: string[]): string {
   const dir = binDir();
   const bin = dir ? path.join(dir, tool) : tool;
-  const env = dir ? { ...process.env, LD_LIBRARY_PATH: [dir, process.env.LD_LIBRARY_PATH].filter(Boolean).join(":") } : process.env;
+  // Las bibliotecas (libav*) vienen junto al binario: LD_LIBRARY_PATH en Linux, DYLD_LIBRARY_PATH en macOS.
+  const libPath = (v?: string) => [dir, v].filter(Boolean).join(":");
+  const env = dir
+    ? { ...process.env, LD_LIBRARY_PATH: libPath(process.env.LD_LIBRARY_PATH), DYLD_LIBRARY_PATH: libPath(process.env.DYLD_LIBRARY_PATH) }
+    : process.env;
   return execFileSync(bin, args, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
