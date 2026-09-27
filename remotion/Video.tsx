@@ -52,7 +52,7 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
         <Chrome start={0} end={scenesEnd - scenesStart} />
       </Sequence>
       {timeline.scenes.map((ts) => (
-        <Sequence key={ts.scene.id} from={ts.from} durationInFrames={ts.durationInFrames} name={ts.scene.id}>
+        <Sequence key={ts.scene.id} from={ts.from} durationInFrames={ts.durationInFrames} name={ts.scene.id} premountFor={timeline.fps}>
           <CaptionReserve.Provider value={reserve}>
             <SceneRenderer scene={ts.scene} screen={ts.screen} baseUrl={base} />
           </CaptionReserve.Provider>

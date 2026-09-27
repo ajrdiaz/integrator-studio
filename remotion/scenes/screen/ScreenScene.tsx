@@ -105,13 +105,15 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
 
   return (
     <AbsoluteFill style={{ opacity: exit, backgroundColor: "#0c1f1a", overflow: "hidden" }}>
+      {/* premountFor: en la vista previa (Player) cada tramo es un <video> distinto; montarlo antes evita ver
+          el fondo oscuro mientras carga y busca su cuadro. En el render no cambia nada. */}
       {pieces.map((p, i) => (
         <React.Fragment key={i}>
-          <Sequence from={p.from} durationInFrames={played(p)} layout="none">
+          <Sequence from={p.from} durationInFrames={played(p)} premountFor={fps}>
             {clip(p)}
           </Sequence>
           {p.duration > played(p) ? (
-            <Sequence from={p.from + played(p)} durationInFrames={p.duration - played(p)} layout="none">
+            <Sequence from={p.from + played(p)} durationInFrames={p.duration - played(p)} premountFor={fps}>
               <Freeze frame={played(p) - 1}>{clip(p)}</Freeze>
             </Sequence>
           ) : null}
