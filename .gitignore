@@ -1,10 +1,16 @@
+# Dependencias
 node_modules/
-jobs/
-out/
+
+# Datos generados (solo en la raíz del proyecto; no afecta a src/jobs/ ni otras carpetas de código)
+/jobs/
+/out/
+/models/
+/web/dist/
+/.remotion-cache/
+
+# Secretos
 .env
 .env.*
 !.env.example
+
 *.log
-.remotion-cache/
-models/
-web/dist/
