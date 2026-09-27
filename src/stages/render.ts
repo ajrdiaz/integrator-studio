@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
@@ -90,6 +91,9 @@ export async function renderVideo({ timeline, format, outFile, assetsDir, draft 
       crf: draft ? 28 : 18,
       scale: draft ? 0.5 : 1,
       x264Preset: draft ? "veryfast" : "medium",
+      // Remotion usa la mitad de los núcleos por defecto; el render es el cuello de botella, así que se usan todos.
+      concurrency: Math.max(1, availableParallelism()),
+      jpegQuality: draft ? 60 : 80,
       outputLocation: outFile,
       inputProps,
       browserExecutable: exe,

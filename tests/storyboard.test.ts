@@ -166,3 +166,15 @@ describe("editor de clips", () => {
     }
   });
 });
+
+describe("callouts", () => {
+  it("el callout del guion reemplaza al de la grabación", () => {
+    const sb = Storyboard.parse({
+      kind: "tutorial", title: "t", targetDurationSec: 30, formats: ["16x9"], music: false,
+      scenes: [{ id: "s1", type: "screen", onScreenText: "x", narration: "r", estDurationSec: 5, goal: "g", steps: [{ id: "a", objective: "o", callout: "Nuevo Registro" }] }],
+    });
+    const rec = { file: "r.mp4", width: 1920, height: 1080, durationSec: 5, scenes: [{ sceneId: "s1", start: 0, end: 5 }],
+      steps: [{ sceneId: "s1", stepId: "a", callout: "Nueva Factura", start: 0, end: 5, clicks: [], focus: [], highlights: [] }] };
+    expect(compose(sb, { recording: rec }).scenes[0]!.screen!.steps[0]!.callout).toBe("Nuevo Registro");
+  });
+});

@@ -59,6 +59,9 @@ export function compose(sb: Storyboard, opts: ComposeOptions = {}): Timeline {
       const sceneSteps = scene.type === "screen" ? scene.steps : [];
       const clipOf = (id: string) => sceneSteps.find((x) => x.id === id)?.clip;
       for (const st of steps) {
+        // El texto del callout manda el guion (editable), no el que quedó en la grabación.
+        const sbStep = sceneSteps.find((x) => x.id === st.stepId);
+        if (sbStep) st.callout = sbStep.callout;
         const c = clipOf(st.stepId);
         if (c?.zoom) st.zoomMode = c.zoom;
         if (c?.zoomBox) st.zoomBox = c.zoomBox;
