@@ -69,6 +69,23 @@ npm run web:dev      # desarrollo: API en :3000 + Vite con recarga en :5173
 - **Regenerar voz** por escena, **progreso en vivo** y **versiones** del guion (restaurables) y de los renders.
 - El servidor escucha solo en `127.0.0.1` (cámbialo con `HOST`/`PORT`). Los trabajos se procesan en fila, uno a la vez.
 
+## Editor de clips (escenas de pantalla)
+
+En la pestaña "Escenas", cada escena de pantalla tiene **Editar clip**. Todo se aplica en la composición, sin volver a
+grabar el ERP, y se ve al instante en la vista previa:
+
+- **Por paso**: recorte al inicio y al final (s), velocidad (automática o fija 0,75x–2x), zoom (automático, sin zoom o
+  zona fija dibujada sobre el fotograma), resaltado activado/desactivado, callout y narración, y "Voz ↻" para
+  regenerar solo la voz de ese paso.
+- **Por escena**: zonas a difuminar (p. ej. nombre o RUC del cliente) dibujadas sobre un fotograma de la grabación.
+- **Pantallas de carga**: la grabación marca los tramos en que el ERP estaba cargando y se saltan automáticamente
+  (casilla "Saltar pantallas de carga").
+- **Escenas**: subir/bajar, eliminar y agregar escenas nuevas desde cualquier plantilla.
+- **Borrador rápido**: media resolución para revisar (no crea versión). `--draft` en la terminal.
+
+Las ediciones se guardan en el storyboard (`steps[].clip`, `clip.blur`, `skipLoading`), así que quedan en el
+historial de versiones.
+
 ## Uso desde la terminal
 
 ```bash
