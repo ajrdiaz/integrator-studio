@@ -1,10 +1,13 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { Page } from "playwright";
 import type { Job } from "../jobs/store";
 import { mediaDuration, runFf } from "../media";
 import type { RecordedStep, Recording, RecordingPlan } from "../schemas/recording-plan";
 import { VIEWPORT, assertTestEnvironment, erpTarget, installGuard, launchBrowser, login, resolve } from "./erp/browser";
 import { CURSOR_SCRIPT, Executor } from "./erp/executor";
+import { stepKey } from "./compose";
+import type { ScreenTexts } from "./review";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Pausa al final de cada paso con el resultado visible (ahí se muestra el resaltado). */
@@ -62,6 +65,8 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
     const now = () => Date.now() / 1000 - t0;
 
     const steps: RecordedStep[] = [];
+    /** Textos visibles al empezar y al terminar cada paso: la revisión compara con ellos la narración y los callouts. */
+    const screenTexts: ScreenTexts = {};
     const loading: { start: number; end: number }[] = [];
     const scenes: Recording["scenes"] = [];
     let current: RecordedStep | undefined;
@@ -88,6 +93,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
           ? step.actions.map((a) => a.type).lastIndexOf("click")
           : step.actions.map((a) => a.type).lastIndexOf("select");
         const lastIsKey = keyIdx >= 0 && step.actions.slice(keyIdx + 1).every((a) => a.type === "wait");
+        const textBefore = await visibleText(page);
         for (const [i, action] of step.actions.entries()) {
           try {
             await exec.run(action, lastIsKey && i === keyIdx);
@@ -98,6 +104,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
           }
         }
         await assertTestEnvironment(page);
+        screenTexts[stepKey(scene.sceneId, step.id)] = `${textBefore}\n${await visibleText(page)}`;
         if (blocked.length) throw new Error(`Navegación bloqueada fuera del ERP: ${blocked[0]}`);
         await sleep(300);
         // Si el paso termina escribiendo (no en un clic), se resalta el resultado durante la pausa final.
@@ -110,6 +117,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
       }
       scenes.push({ sceneId: scene.sceneId, start: sceneStart, end: now() });
     }
+    job.writeJson("recordings/screen-text.json", screenTexts);
     await sleep(600);
     await cdp.send("Page.stopScreencast");
     await sleep(200);
@@ -145,4 +153,17 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
   } finally {
     await browser.close();
   }
+}
+
+/** Texto visible de la página más etiquetas que no son texto (placeholder, aria-label, title, valores de campos). */
+export async function visibleText(page: Page): Promise<string> {
+  return page
+    .evaluate(() => {
+      const extra = [...document.querySelectorAll<HTMLElement>("[placeholder],[aria-label],[title],input,textarea,select")]
+        .filter((el) => el.offsetParent !== null)
+        .flatMap((el) => [el.getAttribute("placeholder"), el.getAttribute("aria-label"), el.getAttribute("title"), (el as HTMLInputElement).value])
+        .filter((v): v is string => !!v && v.length < 200);
+      return `${document.body.innerText}\n${extra.join("\n")}`.slice(0, 40000);
+    })
+    .catch(() => "");
 }

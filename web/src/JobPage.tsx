@@ -1,6 +1,8 @@
 import React from "react";
 import { FORMATS, Storyboard as StoryboardSchema, checkStoryboard, type Format, type Storyboard } from "../../src/schemas/storyboard";
 import { api, type JobView, type RunBody, type RunEvent } from "./api";
+import type { RenderEntry } from "../../src/jobs/store";
+import type { Finding, Review } from "../../src/stages/review";
 import { Preview, previewTimeline } from "./Preview";
 import { ClipEditor } from "./ClipEditor";
 import { TEMPLATE_DEFAULTS, TEMPLATE_IDS, TEMPLATE_DOCS, type TemplateId } from "../../src/schemas/templates";
@@ -322,7 +324,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
               <Log events={events} />
             </div>
 
-            <Renders view={view} disabled={running} onAdd={(f) => produce({ formats: [f], draft: undefined })} />
+            <Renders view={view} disabled={running} onAdd={(f) => produce({ formats: [f], draft: undefined })} onReviewed={setView} />
           </section>
         </div>
       )}
@@ -502,7 +504,14 @@ const Log: React.FC<{ events: RunEvent[] }> = ({ events }) => {
   );
 };
 
-const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) => void }> = ({ view, disabled, onAdd }) => {
+const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) => void; onReviewed: (v: JobView) => void }> = ({
+  view,
+  disabled,
+  onAdd,
+  onReviewed,
+}) => {
+  const [reviewing, setReviewing] = React.useState(false);
+  const [reviewError, setReviewError] = React.useState("");
   const m = view.manifest;
   const last = m.renders.reduce((a, r) => Math.max(a, r.version), 0);
   const files = m.renders.filter((r) => r.version === last);
@@ -527,6 +536,24 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
       <div className="renders-head">
         <h3>Render v{last}</h3>
         <span className="links">
+          <button
+            className="ghost small"
+            disabled={disabled || reviewing}
+            title="Guion vs. grabación, cuadros negros, imagen quieta, silencios y volumen"
+            onClick={async () => {
+              setReviewing(true);
+              setReviewError("");
+              try {
+                onReviewed(await api.review(m.id));
+              } catch (e) {
+                setReviewError((e as Error).message);
+              } finally {
+                setReviewing(false);
+              }
+            }}
+          >
+            {reviewing ? "Revisando…" : files.some((r) => r.review) ? "Volver a revisar" : "Revisar"}
+          </button>
           {missing.map((f) => (
             <button key={f} className="ghost small" disabled={disabled} onClick={() => onAdd(f)} title="Genera este formato con el mismo contenido">
               + {f.replace("x", ":")}
@@ -544,17 +571,65 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
       ) : null}
       <div className="render-grid">
         {files.map((r) => (
-          <figure key={r.file} className={`f${r.format}`}>
-            <video src={`/jobs/${m.id}/${r.file}`} controls preload="metadata" />
-            <figcaption>
-              {r.format.replace("x", ":")} ·{" "}
-              <a href={`/jobs/${m.id}/${r.file}`} download>
-                Descargar
-              </a>
-            </figcaption>
-          </figure>
+          <RenderFigure key={r.file} jobId={m.id} entry={r} />
         ))}
       </div>
+      {reviewError ? <p className="error small">No se pudo revisar: {reviewError}</p> : null}
     </div>
   );
 };
+
+const LEVEL_ICON: Record<Finding["level"], string> = { error: "✖", warning: "▲", info: "·" };
+
+/** Un render con su revisión automática; los segundos de cada hallazgo llevan el video a ese punto. */
+const RenderFigure: React.FC<{ jobId: string; entry: RenderEntry }> = ({ jobId, entry }) => {
+  const video = React.useRef<HTMLVideoElement>(null);
+  const [review, setReview] = React.useState<Review | null>(null);
+  React.useEffect(() => {
+    if (!entry.review) return setReview(null);
+    fetch(`/jobs/${jobId}/${entry.file.replace(/\.mp4$/, ".review.json")}?v=${encodeURIComponent(entry.review.createdAt)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setReview)
+      .catch(() => setReview(null));
+  }, [jobId, entry.file, entry.review?.createdAt]);
+  const seek = (t: number) => {
+    if (!video.current) return;
+    video.current.currentTime = t;
+    void video.current.play();
+  };
+  const s = entry.review;
+  return (
+    <figure className={`f${entry.format}`}>
+      <video ref={video} src={`/jobs/${jobId}/${entry.file}`} controls preload="metadata" />
+      <figcaption>
+        {entry.format.replace("x", ":")} ·{" "}
+        <a href={`/jobs/${jobId}/${entry.file}`} download>
+          Descargar
+        </a>
+        {s ? (
+          <span className={`review-badge ${s.errors ? "error" : s.warnings ? "warn" : "ok"}`}>
+            {s.errors ? `${s.errors} error${s.errors > 1 ? "es" : ""}` : s.warnings ? "sin errores" : "✓ revisado"}
+            {s.warnings ? ` · ${s.warnings} aviso${s.warnings > 1 ? "s" : ""}` : ""}
+          </span>
+        ) : null}
+      </figcaption>
+      {review?.findings.length ? (
+        <ul className="review">
+          {review.findings.map((f, i) => (
+            <li key={i} className={f.level}>
+              <span className="review-icon">{LEVEL_ICON[f.level]}</span>
+              {f.at !== undefined ? (
+                <button className="review-at" onClick={() => seek(f.at!)} title="Ver en el video">
+                  {fmtTime(f.at)}
+                </button>
+              ) : null}
+              <span>{f.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </figure>
+  );
+};
+
+const fmtTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;

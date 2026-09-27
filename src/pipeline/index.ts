@@ -1,6 +1,6 @@
 import path from "node:path";
 import { log, redact } from "../log";
-import { Job, STAGES, hash, type Stage } from "../jobs/store";
+import { Job, STAGES, hash, type RenderEntry, type Stage } from "../jobs/store";
 import { parseRequest } from "../request";
 import type { Format, Storyboard } from "../schemas/storyboard";
 import type { Timeline } from "../schemas/timeline";
@@ -12,6 +12,7 @@ import { record } from "../stages/record";
 import { RecordingPlan, type Recording } from "../schemas/recording-plan";
 import { getProvider, synthesizeScenes } from "../stages/tts";
 import { renderVideo } from "../stages/render";
+import { reviewEntry, summarize } from "../stages/review";
 import { generateStoryboard } from "../stages/storyboard";
 
 export interface RunOptions {
@@ -192,16 +193,25 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
       const rel = `renders/v${version}/${format}.mp4`;
       onProgress("render", `v${version} ${format}…`);
       await renderVideo({ timeline, format, outFile: job.path(rel), assetsDir: job.dir });
-      job.manifest.renders.push({
+      const entry: RenderEntry = {
         version,
         format,
         file: rel,
         createdAt: new Date().toISOString(),
         storyboardVersion: job.manifest.storyboardVersion,
         timelineHash,
-      });
+      };
+      job.manifest.renders.push(entry);
       job.save();
       onProgress("render", `listo → ${rel}`);
+      // Revisión automática: informa, no bloquea (el video ya está hecho).
+      try {
+        const r = reviewEntry(job, entry, timeline);
+        const { errors, warnings } = summarize(r);
+        onProgress("render", `revisión ${format}: ${errors ? `${errors} error(es)` : "sin errores"}${warnings ? `, ${warnings} aviso(s)` : ""}`);
+      } catch (e) {
+        log.warn(`No se pudo revisar ${rel}: ${(e as Error).message}`);
+      }
     }
     job.setStage("render", { status: "done", inputHash: timelineHash, error: undefined });
   } catch (e) {

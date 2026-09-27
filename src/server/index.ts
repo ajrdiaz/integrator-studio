@@ -4,6 +4,7 @@ import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { ASSETS_DIR, JOBS_DIR, ROOT_DIR } from "../config";
 import { Job, STAGES, type Stage } from "../jobs/store";
+import { reviewLatest } from "../stages/review";
 import { log } from "../log";
 import { parseRequest } from "../request";
 import { FORMATS, Storyboard, checkStoryboard, type Format } from "../schemas/storyboard";
@@ -117,6 +118,19 @@ app.post("/api/jobs/:id/scenes/:scene/voice", (req, res) => {
   const scene = String(req.params.scene);
   if (!/^[a-z0-9-]+$/.test(scene)) return void res.status(400).json({ error: "escena inválida" });
   res.json({ status: regenerateSceneVoice(job, scene, runOpts(req.body ?? {})) });
+});
+
+/** Revisa (o vuelve a revisar) la última versión renderizada. Tarda unos segundos por formato. */
+app.post("/api/jobs/:id/review", (req, res) => {
+  const job = openJob(req, res);
+  if (!job) return;
+  if (["queued", "running"].includes(runtimeStatus(job.id))) return void res.status(409).json({ error: "El job se está procesando" });
+  try {
+    reviewLatest(job);
+    res.json(jobView(job));
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
 });
 
 /** Fotograma de la grabación del ERP en el segundo `t` (PNG, con caché). Lo usa el editor de clips. */

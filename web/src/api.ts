@@ -46,6 +46,7 @@ export const api = {
   get: (id: string) => call<JobView>(`/api/jobs/${id}`),
   saveStoryboard: (id: string, storyboard: unknown) =>
     call<JobView>(`/api/jobs/${id}/storyboard`, { method: "PUT", body: JSON.stringify({ storyboard }) }),
+  review: (id: string) => call<JobView>(`/api/jobs/${id}/review`, { method: "POST" }),
   history: (id: string, v: number) => call<Storyboard>(`/api/jobs/${id}/history/${v}`),
   run: (id: string, body: RunBody) => call<{ status: Runtime }>(`/api/jobs/${id}/run`, { method: "POST", body: JSON.stringify(body) }),
   sceneVoice: (id: string, scene: string, body: RunBody) =>

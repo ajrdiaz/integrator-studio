@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -18,7 +18,7 @@ function binDir(): string | undefined {
   return undefined;
 }
 
-export function runFf(tool: "ffmpeg" | "ffprobe", args: string[]): string {
+function ffCommand(tool: "ffmpeg" | "ffprobe") {
   const dir = binDir();
   const bin = dir ? path.join(dir, tool) : tool;
   // Las bibliotecas (libav*) vienen junto al binario: LD_LIBRARY_PATH en Linux, DYLD_LIBRARY_PATH en macOS.
@@ -26,7 +26,28 @@ export function runFf(tool: "ffmpeg" | "ffprobe", args: string[]): string {
   const env = dir
     ? { ...process.env, LD_LIBRARY_PATH: libPath(process.env.LD_LIBRARY_PATH), DYLD_LIBRARY_PATH: libPath(process.env.DYLD_LIBRARY_PATH) }
     : process.env;
+  return { bin, env };
+}
+
+export function runFf(tool: "ffmpeg" | "ffprobe", args: string[]): string {
+  const { bin, env } = ffCommand(tool);
   return execFileSync(bin, args, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+/** Ejecuta ffmpeg y devuelve su registro (stderr), donde escriben los filtros de análisis (blackdetect, volumedetect…). */
+export function ffmpegLog(args: string[]): string {
+  const { bin, env } = ffCommand("ffmpeg");
+  const r = spawnSync(bin, args, { env, encoding: "utf8", stdio: ["ignore", "ignore", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`ffmpeg falló (${r.status}): ${r.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
+  return r.stderr;
+}
+
+/** Ejecuta ffmpeg y devuelve su salida binaria (p. ej. cuadros crudos por image2pipe). */
+export function ffmpegStdout(args: string[]): Buffer {
+  const { bin, env } = ffCommand("ffmpeg");
+  const r = spawnSync(bin, args, { env, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`ffmpeg falló (${r.status}): ${r.stderr.toString().split("\n").filter(Boolean).slice(-3).join(" ")}`);
+  return r.stdout;
 }
 
 /** Duración real de un archivo de audio/video en segundos. */

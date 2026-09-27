@@ -67,6 +67,8 @@ npm run web:dev      # desarrollo: API en :3000 + Vite con recarga en :5173
 - **Producir**: formatos, voz (automática, ElevenLabs, Kokoro, silencio o sin voz), "Solo render" y "Reescribir guion".
   Al cambiar una frase, solo se regenera la voz de esa escena, la composición y el render.
 - **Regenerar voz** por escena, **progreso en vivo** y **versiones** del guion (restaurables) y de los renders.
+- **Revisión automática** de cada render (debajo del video; "Volver a revisar" la repite). Los segundos de cada
+  hallazgo llevan el video a ese punto. Ver [Revisión automática](#revisión-automática).
 - El servidor escucha solo en `127.0.0.1` (cámbialo con `HOST`/`PORT`). Los trabajos se procesan en fila, uno a la vez.
 
 ## Editor de clips (escenas de pantalla)
@@ -103,6 +105,9 @@ npm run video -- "promo: sin costos ocultos" --storyboard fixtures/promo-sin-cos
 # Varios formatos / lote
 npm run video -- --job <id> --formats all
 npm run video -- --batch pedidos.txt   # un pedido por línea, '#' para comentarios
+
+# Revisar la última versión renderizada (sale con código 1 si hay errores)
+npm run video -- --job <id> --review
 ```
 
 Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`30 s`, `1.5 min`) y formato
@@ -148,6 +153,24 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
 "Ambiente de Prueba" y si no aparece se detiene; el login usa `.env` y el agente nunca ve la contraseña.
 Opcional: `ERP_SAMPLE_CUSTOMER` = cliente ficticio que el agente debe usar en los videos.
 
+## Revisión automática
+
+Después de cada render se revisa el MP4 sin IA (unos segundos) y se guarda `renders/vN/<formato>.review.json`.
+No bloquea: informa errores (✖), avisos (▲) y notas (·).
+
+- **Guion vs. grabación**: los botones y opciones que la narración pide tocar ("Haz clic en Nueva Factura") y los
+  callouts deben existir en la grabación. Compara con los elementos que usa el plan y con el texto visible de cada paso
+  (`recordings/screen-text.json`, que la grabación guarda desde esta versión; sin él, los callouts de campos no se revisan).
+- **Timeline**: voces cortadas o superpuestas, huecos sin video, imagen congelada más de 4 s esperando a la voz,
+  tramos acelerados más de ×2.
+- **Video**: duración y tamaño esperados, pantalla negra, fondo oscuro visible en escenas de pantalla, parpadeos
+  oscuros de 1–6 cuadros e imagen totalmente quieta más de 6 s.
+- **Audio**: pista presente, silencios de más de 2,5 s dentro de las escenas, pico real (> -0,5 dBTP) y sonoridad
+  fuera de -20…-11 LUFS (para redes se recomienda -16…-14).
+
+El ffmpeg de Remotion no trae `blackdetect`/`freezedetect`/`ebur128`: los cuadros se analizan en TypeScript
+(reducidos a 64×64 en grises) y el audio con `silencedetect` + `loudnorm`.
+
 ## Estructura de un job
 
 ```
@@ -162,6 +185,7 @@ jobs/<id>/
   recordings/tutorial.mp4  # grabación del ERP + recording.json (tiempos por paso)
   timeline.json            # escenas en frames, lo que recibe Remotion
   renders/vN/16x9.mp4      # cada render crea una versión nueva
+  renders/vN/16x9.review.json  # revisión automática de ese render
 ```
 
 Una etapa se salta si ya está hecha con el mismo hash de entradas; `--from <etapa>` fuerza rehacerla junto con las
@@ -178,6 +202,7 @@ src/
   stages/storyboard.ts   Claude Agent SDK: salida estructurada + WebSearch/WebFetch limitados a manuales.integrator.pe
   stages/compose.ts      storyboard (+ audios) → timeline en frames
   stages/render.ts       bundle de Remotion + render por formato
+  stages/review.ts       revisión automática del render (guion vs. grabación, cuadros, audio, timeline)
   jobs/store.ts          carpeta del job, versiones, hashes
   server/                API HTTP + SSE de progreso para la interfaz web
 web/                     interfaz (React + Vite + @remotion/player)

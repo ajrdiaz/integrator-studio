@@ -80,7 +80,8 @@ textarea:focus, input:focus, select:focus { outline: 2px solid var(--green-soft)
 .job-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 1100px) { .job-grid { grid-template-columns: 1fr; } }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
-.side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+.side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+@media (max-width: 1100px) { .side { position: static; max-height: none; overflow: visible; } }
 
 .tabs { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
 .tabs > button:not(.ghost) { border: 0; background: none; padding: 7px 12px; border-radius: 8px; font-weight: 600; color: var(--muted); }
@@ -140,6 +141,17 @@ label.inline input { width: 90px; }
 .steps li { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
 .step-objective { font-weight: 600; font-size: 13px; }
 .renders-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.review-badge { margin-left: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.review-badge.ok { background: var(--green-soft); color: var(--green-dark); }
+.review-badge.warn { background: #fdf3e2; color: var(--warn); }
+.review-badge.error { background: #fbe4e3; color: var(--danger); }
+.review { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; text-align: left; display: grid; gap: 4px; }
+.review li { display: flex; gap: 6px; align-items: baseline; line-height: 1.4; }
+.review li.error .review-icon { color: var(--danger); }
+.review li.warning .review-icon { color: var(--warn); }
+.review li.info { color: var(--muted); }
+.review-icon { flex: none; width: 12px; text-align: center; }
+.review-at { flex: none; border: 0; background: var(--green-soft); color: var(--green-dark); border-radius: 6px; padding: 0 6px; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 
 .ghost.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 .ghost.active { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }

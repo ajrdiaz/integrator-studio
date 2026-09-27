@@ -27,6 +27,8 @@ export interface RenderEntry {
   storyboardVersion: number;
   /** Hash del timeline renderizado: si no cambia, se pueden agregar formatos a la misma versión. */
   timelineHash?: string;
+  /** Resumen de la revisión automática (detalle en <archivo>.review.json). */
+  review?: { errors: number; warnings: number; createdAt: string };
 }
 
 export interface JobManifest {
