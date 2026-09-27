@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { renameSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -56,4 +57,32 @@ export function mediaDuration(file: string): number {
   const d = Number(out.trim());
   if (!Number.isFinite(d)) throw new Error(`No se pudo medir la duración de ${file}`);
   return d;
+}
+
+/** Sonoridad objetivo del audio final: la habitual en redes (YouTube, Instagram, TikTok normalizan cerca de -14). */
+export const TARGET_LUFS = -14;
+
+/**
+ * Normaliza el audio de un MP4 a TARGET_LUFS con loudnorm en dos pasadas (medir y aplicar), sin recodificar el video.
+ * Si el pico no deja margen para una ganancia lineal, loudnorm limita dinámicamente. Devuelve la sonoridad medida antes.
+ */
+export function normalizeLoudness(file: string): { beforeLufs: number } | undefined {
+  const hasAudio = runFf("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", file]).trim();
+  if (!hasAudio) return undefined;
+  const target = `I=${TARGET_LUFS}:TP=-1.5:LRA=11`;
+  const log = ffmpegLog(["-hide_banner", "-nostats", "-i", file, "-vn", "-af", `loudnorm=${target}:print_format=json`, "-c:a", "pcm_s16le", "-f", "null", "-"]);
+  const json = /\{[^{}]*"input_i"[^{}]*\}/.exec(log);
+  if (!json) throw new Error("loudnorm no devolvió mediciones");
+  const m = JSON.parse(json[0]) as Record<string, string>;
+  if (!Number.isFinite(Number(m.input_i))) return undefined; // audio en silencio: nada que normalizar
+  const measured = `measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}`;
+  const tmp = file.replace(/\.mp4$/, ".norm.mp4");
+  runFf("ffmpeg", [
+    "-v", "error", "-y", "-i", file,
+    "-map", "0:v", "-map", "0:a", "-c:v", "copy",
+    "-af", `loudnorm=${target}:${measured}:linear=true`,
+    "-ar", "48000", "-c:a", "aac", "-b:a", "320k", "-movflags", "+faststart", tmp,
+  ]);
+  renameSync(tmp, file);
+  return { beforeLufs: Number(m.input_i) };
 }

@@ -7,6 +7,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { ASSETS_DIR, ROOT_DIR, browserExecutable } from "../config";
 import { log } from "../log";
+import { TARGET_LUFS, normalizeLoudness } from "../media";
 import type { Format } from "../schemas/storyboard";
 import type { Timeline, VideoProps } from "../schemas/timeline";
 
@@ -105,6 +106,9 @@ export async function renderVideo({ timeline, format, outFile, assetsDir, draft 
         }
       },
     });
+    // Remotion mezcla voz y música sin normalizar: se lleva la sonoridad al estándar de redes.
+    const norm = normalizeLoudness(outFile);
+    if (norm) log.info(`  ${format}: audio ${norm.beforeLufs} → ${TARGET_LUFS} LUFS`);
     return outFile;
   } finally {
     await server.close();
