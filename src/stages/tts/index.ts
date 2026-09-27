@@ -4,7 +4,7 @@ import { log } from "../../log";
 import { hash, type Job } from "../../jobs/store";
 import { mediaDuration } from "../../media";
 import type { Storyboard } from "../../schemas/storyboard";
-import type { SceneAudio } from "../compose";
+import { stepKey, type SceneAudio } from "../compose";
 import { ElevenLabsProvider } from "./elevenlabs";
 import { KokoroProvider } from "./kokoro";
 import { mapTimings, toSpoken } from "./pronunciation";
@@ -52,28 +52,32 @@ export async function synthesizeScenes(
   const audio: Record<string, SceneAudio> = {};
   const generated: string[] = [];
 
-  for (const [i, scene] of sb.scenes.entries()) {
-    const text = scene.narration.trim();
-    if (!text) continue;
-    const spoken = toSpoken(text);
+  // Unidades de locución: una por escena o, en escenas de pantalla con narración por paso, una por paso.
+  const units: { key: string; text: string }[] = sb.scenes.flatMap((scene) =>
+    scene.type === "screen" && scene.steps.some((st) => st.narration?.trim())
+      ? scene.steps.filter((st) => st.narration?.trim()).map((st) => ({ key: stepKey(scene.id, st.id), text: st.narration!.trim() }))
+      : scene.narration.trim()
+        ? [{ key: scene.id, text: scene.narration.trim() }]
+        : [],
+  );
+
+  for (const [i, unit] of units.entries()) {
+    const spoken = toSpoken(unit.text);
     const h = hash({ p: provider.id, k: provider.cacheKey, t: spoken.spoken });
-    const metaRel = `audio/${scene.id}.json`;
+    const metaRel = `audio/${unit.key}.json`;
     let meta: AudioMeta | undefined = job.exists(metaRel) ? job.readJson<AudioMeta>(metaRel) : undefined;
 
     if (!meta || meta.hash !== h || !existsSync(job.path(meta.file))) {
-      onProgress(`${scene.id}: sintetizando (${provider.id})`);
-      const res = await provider.synthesize(spoken.spoken, {
-        previousText: sb.scenes[i - 1]?.narration,
-        nextText: sb.scenes[i + 1]?.narration,
-      });
-      const file = `audio/${scene.id}.${res.ext}`;
+      onProgress(`${unit.key}: sintetizando (${provider.id})`);
+      const res = await provider.synthesize(spoken.spoken, { previousText: units[i - 1]?.text, nextText: units[i + 1]?.text });
+      const file = `audio/${unit.key}.${res.ext}`;
       writeFileSync(job.path(file), res.audio);
       const durationSec = mediaDuration(job.path(file));
       meta = { hash: h, provider: provider.id, file, durationSec, words: mapTimings(spoken, res.words) };
       job.writeJson(metaRel, meta);
-      generated.push(scene.id);
+      generated.push(unit.key);
     }
-    audio[scene.id] = { src: meta.file, durationSec: meta.durationSec, words: meta.words };
+    audio[unit.key] = { src: meta.file, durationSec: meta.durationSec, words: meta.words };
   }
   return { audio, generated };
 }

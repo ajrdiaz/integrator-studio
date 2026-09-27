@@ -363,11 +363,23 @@ const SceneList: React.FC<{
           </label>
           {s.type === "screen" ? (
             <ol className="steps">
-              {s.steps.map((st) => (
-                <li key={st.id}>
-                  {st.objective} <span className="muted">— {st.callout}</span>
-                </li>
-              ))}
+              {s.steps.map((st, k) => {
+                const setStep = (patch: Partial<typeof st>) =>
+                  set(i, { steps: s.steps.map((x, j) => (j === k ? { ...x, ...patch } : x)) } as never);
+                return (
+                  <li key={st.id}>
+                    <div className="step-objective">{st.objective}</div>
+                    <label>
+                      Callout
+                      <input value={st.callout} onChange={(e) => setStep({ callout: e.target.value })} />
+                    </label>
+                    <label>
+                      Narración del paso
+                      <textarea rows={2} value={st.narration ?? ""} onChange={(e) => setStep({ narration: e.target.value || undefined })} />
+                    </label>
+                  </li>
+                );
+              })}
             </ol>
           ) : null}
         </div>

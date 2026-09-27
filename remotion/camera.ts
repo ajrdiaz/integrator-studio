@@ -56,8 +56,7 @@ export function clampCamera(c: Camera, src: { width: number; height: number }, o
 /** Cámara suavizada: promedio de la cámara objetivo en los últimos `window` fotogramas (determinista). */
 export function smoothCamera(
   frame: number,
-  fps: number,
-  rate: number,
+  timeAt: (frame: number) => number,
   steps: RecordedStep[],
   src: { width: number; height: number },
   out: { width: number; height: number },
@@ -70,7 +69,7 @@ export function smoothCamera(
   for (let i = 0; i <= window; i++) {
     const f = Math.max(0, frame - i);
     const w = window + 1 - i; // más peso a lo reciente
-    const t = (f / fps) * rate;
+    const t = timeAt(f);
     const portraitish = out.width / out.height <= 1.2;
     let target = targetCamera(focusAt(steps, t), src, out);
     if (portraitish && !focusAt(steps, t)) {

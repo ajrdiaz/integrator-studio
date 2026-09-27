@@ -38,6 +38,10 @@ export const ScreenStep = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   objective: z.string().describe('Qué debe lograrse en el ERP en este paso, p. ej. "Abrir Ventas > Facturación"'),
   callout: z.string().describe("Texto breve que aparece junto al elemento resaltado (máx. ~40 caracteres)"),
+  narration: z
+    .string()
+    .describe("Locución de este paso (1-2 frases), se dice mientras se ve el paso en pantalla")
+    .optional(),
 });
 
 export const ScreenScene = z.object({

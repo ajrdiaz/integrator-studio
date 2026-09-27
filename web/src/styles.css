@@ -134,3 +134,5 @@ label.inline input { width: 90px; }
 .version-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
 .links { display: flex; gap: 10px; }
 .job-req { font-size: 12px; color: var(--muted); }
+.steps li { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+.step-objective { font-weight: 600; font-size: 13px; }

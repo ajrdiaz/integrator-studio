@@ -61,6 +61,11 @@ export const Video: React.FC<VideoProps> = ({ timeline }) => {
               <Audio src={base + ts.audio.src} />
             </Sequence>
           ) : null}
+          {ts.stepVoices?.map((v) => (
+            <Sequence key={v.key} from={v.offsetFrames} durationInFrames={v.durationInFrames + 2} name={`voz ${v.key}`}>
+              <Audio src={base + v.src} />
+            </Sequence>
+          ))}
           {ts.captions?.length ? <Captions words={ts.captions} /> : null}
         </Sequence>
       ))}

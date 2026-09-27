@@ -22,7 +22,8 @@ Estructura:
 - La intro de marca (${INTRO_SEC} s) y el cierre con CTA (${OUTRO_SEC} s) se agregan automáticamente: NO los incluyas como escenas ni menciones el WhatsApp.
 - La suma de estDurationSec debe ser ≈ targetDurationSec − ${INTRO_SEC + OUTRO_SEC} s.
 - Promo: solo escenas "motion" (salvo que el pedido pida mostrar el sistema). 30 s ≈ 4-6 escenas. Empieza con un gancho y termina con un remate que conecte con el CTA.
-- Tutorial: una escena kinetic-title que diga qué se va a lograr, luego escenas "screen" (una por tarea de la interfaz, con steps que describen cada objetivo en el ERP usando los nombres reales de menús y botones del manual) y una checklist final de resumen. Consulta el manual correspondiente antes de escribir los pasos y lista las URLs usadas en "sources".
+- Tutorial: una escena kinetic-title que diga qué se va a lograr, luego escenas "screen" (una por tarea de la interfaz, con steps que describen cada objetivo en el ERP usando los nombres reales de menús y botones del manual) y una checklist final de resumen.
+- En escenas "screen", cada step lleva su propia "narration" (1-2 frases, 8-25 palabras) que se dice mientras se ve ese paso: explica qué se hace y por qué. La "narration" de la escena queda como resumen y no se locuta. Los callouts usan el texto exacto del botón o campo. Consulta el manual correspondiente antes de escribir los pasos y lista las URLs usadas en "sources".
 
 Veracidad:
 - No inventes precios, cantidad de clientes, porcentajes ni promesas sobre Integrator que no estén en el pedido o en las fuentes consultadas.

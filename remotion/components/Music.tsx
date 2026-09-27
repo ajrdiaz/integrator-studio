@@ -4,9 +4,11 @@ import type { Timeline } from "../../src/schemas/timeline";
 
 /** Intervalos (en frames globales) donde suena la voz. */
 export function voiceIntervals(timeline: Timeline): [number, number][] {
-  return timeline.scenes
-    .filter((s) => s.audio)
-    .map((s) => [s.from + s.audio!.offsetFrames, s.from + s.audio!.offsetFrames + s.audio!.durationInFrames] as [number, number]);
+  return timeline.scenes.flatMap((s) =>
+    [...(s.audio ? [s.audio] : []), ...(s.stepVoices ?? [])].map(
+      (a) => [s.from + a.offsetFrames, s.from + a.offsetFrames + a.durationInFrames] as [number, number],
+    ),
+  );
 }
 
 /**

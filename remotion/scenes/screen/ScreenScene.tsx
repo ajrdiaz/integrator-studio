@@ -17,26 +17,27 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
   const exit = useExit(6);
   const src = { width: screen.width, height: screen.height };
   const out = { width, height };
-  const segFrames = Math.max(1, Math.floor(((screen.end - screen.start) / screen.rate) * fps));
-  const f = Math.min(frame, segFrames - 1);
-  const t = (f / fps) * screen.rate;
-  const cam = smoothCamera(f, fps, screen.rate, screen.steps, src, out);
+  const pieces = screen.pieces;
+  /** Frames que se reproducen de cada tramo (el resto del tramo es el último cuadro congelado). */
+  const played = (p: (typeof pieces)[number]) => Math.max(1, Math.min(p.duration, Math.floor(((p.srcEnd - p.srcStart) / p.rate) * fps)));
+  const timeAt = (fr: number) => {
+    const p = pieces.find((x) => fr >= x.from && fr < x.from + x.duration) ?? pieces[pieces.length - 1]!;
+    const local = Math.min(Math.max(0, fr - p.from), played(p) - 1);
+    return p.srcStart + (local / fps) * p.rate;
+  };
+  const t = timeAt(frame);
+  const cam = smoothCamera(frame, timeAt, screen.steps, src, out);
 
-  const video = (
-    <OffthreadVideo
-      src={baseUrl + screen.src}
-      startFrom={Math.round(screen.start * fps)}
-      playbackRate={screen.rate}
-      muted
-      style={{
-        position: "absolute",
-        width: screen.width * cam.scale,
-        height: screen.height * cam.scale,
-        left: width / 2 - cam.cx * cam.scale,
-        top: height / 2 - cam.cy * cam.scale,
-        maxWidth: "none",
-      }}
-    />
+  const videoStyle: React.CSSProperties = {
+    position: "absolute",
+    width: screen.width * cam.scale,
+    height: screen.height * cam.scale,
+    left: width / 2 - cam.cx * cam.scale,
+    top: height / 2 - cam.cy * cam.scale,
+    maxWidth: "none",
+  };
+  const clip = (p: (typeof pieces)[number]) => (
+    <OffthreadVideo src={baseUrl + screen.src} startFrom={Math.round((screen.start + p.srcStart) * fps)} playbackRate={p.rate} muted style={videoStyle} />
   );
 
   // Resaltado + callout durante la pausa final de cada paso.
@@ -104,10 +105,18 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
 
   return (
     <AbsoluteFill style={{ opacity: exit, backgroundColor: "#0c1f1a", overflow: "hidden" }}>
-      <Sequence durationInFrames={segFrames} layout="none">
-        {video}
-      </Sequence>
-      {frame >= segFrames ? <Freeze frame={segFrames - 1}>{video}</Freeze> : null}
+      {pieces.map((p, i) => (
+        <React.Fragment key={i}>
+          <Sequence from={p.from} durationInFrames={played(p)} layout="none">
+            {clip(p)}
+          </Sequence>
+          {p.duration > played(p) ? (
+            <Sequence from={p.from + played(p)} durationInFrames={p.duration - played(p)} layout="none">
+              <Freeze frame={played(p) - 1}>{clip(p)}</Freeze>
+            </Sequence>
+          ) : null}
+        </React.Fragment>
+      ))}
       {overlay}
       <div
         style={{

@@ -14,6 +14,8 @@ export interface TimelineScene {
   durationInFrames: number;
   /** Ruta relativa al directorio del job (se sirve por HTTP durante el render). */
   audio?: { src: string; durationInFrames: number; offsetFrames: number };
+  /** Voz por paso en escenas de pantalla (clave "escena--paso"). */
+  stepVoices?: { key: string; src: string; durationInFrames: number; offsetFrames: number }[];
   captions?: CaptionWord[];
   /** Escenas de pantalla: tramo de la grabación del ERP. Tiempos de `steps` relativos a `start`. */
   screen?: {
@@ -22,8 +24,12 @@ export interface TimelineScene {
     height: number;
     start: number;
     end: number;
-    /** Velocidad de reproducción (>1 si el tramo es mucho más largo que la voz). */
-    rate: number;
+    /**
+     * Tramos de reproducción (uno por paso, o uno para toda la escena). Cada tramo se reproduce a `rate`
+     * (>1 si es mucho más largo que su voz) y, si la voz es más larga, se congela su último cuadro.
+     * srcStart/srcEnd en segundos relativos a `start`; from/duration en frames relativos a la escena.
+     */
+    pieces: { srcStart: number; srcEnd: number; rate: number; from: number; duration: number }[];
     steps: RecordedStep[];
   };
 }
