@@ -25,7 +25,8 @@ const EnvSchema = z.object({
   KOKORO_MODEL_DIR: optional.transform((v) => v ?? "./models/kokoro"),
   KOKORO_VOICE: optional.transform((v) => v ?? "em_alex"),
   KOKORO_SPEED: optional.transform((v) => Number(v ?? "1.0")),
-  KOKORO_PYTHON: optional.transform((v) => v ?? "python3"),
+  /** Por defecto, el Python del entorno que crea `npm run setup:kokoro` (o python3 si no existe). */
+  KOKORO_PYTHON: optional,
   JOBS_DIR: optional.transform((v) => v ?? "./jobs"),
   REMOTION_BROWSER_EXECUTABLE: optional,
 });

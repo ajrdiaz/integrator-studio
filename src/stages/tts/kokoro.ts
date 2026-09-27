@@ -41,6 +41,7 @@ export class KokoroProvider implements TtsProvider {
   private readonly dir = path.resolve(ROOT_DIR, env.KOKORO_MODEL_DIR);
   private readonly voice = env.KOKORO_VOICE;
   private readonly speed = env.KOKORO_SPEED;
+  private readonly python = env.KOKORO_PYTHON ?? (existsSync(path.join(this.dir, "venv/bin/python")) ? path.join(this.dir, "venv/bin/python") : "python3");
 
   constructor() {
     if (!existsSync(path.join(this.dir, "kokoro-v1.0.onnx"))) {
@@ -57,7 +58,7 @@ export class KokoroProvider implements TtsProvider {
     try {
       const chunks = sentences(text);
       const out = path.join(tmp, "out.wav");
-      const stdout = execFileSync(env.KOKORO_PYTHON, [path.join(ROOT_DIR, "scripts/kokoro_tts.py")], {
+      const stdout = execFileSync(this.python, [path.join(ROOT_DIR, "scripts/kokoro_tts.py")], {
         input: JSON.stringify({
           chunks,
           voice: this.voice,
