@@ -86,7 +86,15 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
           ? step.actions.map((a) => a.type).lastIndexOf("click")
           : step.actions.map((a) => a.type).lastIndexOf("select");
         const lastIsKey = keyIdx >= 0 && step.actions.slice(keyIdx + 1).every((a) => a.type === "wait");
-        for (const [i, action] of step.actions.entries()) await exec.run(action, lastIsKey && i === keyIdx);
+        for (const [i, action] of step.actions.entries()) {
+          try {
+            await exec.run(action, lastIsKey && i === keyIdx);
+          } catch (e) {
+            const shot = `recordings/error-${step.id}.jpg`;
+            writeFileSync(job.path(shot), await page.screenshot({ type: "jpeg", quality: 70 }));
+            throw new Error(`La grabación falló en ${scene.sceneId}/${step.id}, acción ${i + 1} (${action.type}): ${(e as Error).message.split("\n")[0]} (captura: ${shot}). Si la interfaz cambió, vuelve a explorar.`);
+          }
+        }
         await assertTestEnvironment(page);
         if (blocked.length) throw new Error(`Navegación bloqueada fuera del ERP: ${blocked[0]}`);
         await sleep(300);

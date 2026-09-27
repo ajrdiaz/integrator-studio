@@ -142,9 +142,13 @@ export class Executor {
             await sleep(55 + this.rand() * 75 + (ch === " " ? 40 : 0));
           }
         } else {
+          // Igual que la grabación (tecla por tecla) pero rápido: los buscadores reaccionan igual en ambos modos.
           await loc.waitFor({ state: "visible", timeout: 15000 });
-          await loc.fill(action.value);
+          await loc.fill("");
+          await loc.pressSequentially(action.value, { delay: 25 });
         }
+        // Buscadores con "debounce": dar tiempo a que salga la petición antes de esperar la red.
+        await sleep(700);
         break;
       }
       case "select": {
@@ -161,7 +165,15 @@ export class Executor {
         break;
       }
       case "press":
-        if (action.target) await resolve(page, action.target).first().focus();
+        if (action.target) {
+          const loc = resolve(page, action.target).first();
+          // En un combobox, elegir con teclado solo cuando ya hay opciones visibles (igual en exploración y grabación).
+          if (action.target.role === "combobox" && ["ArrowDown", "ArrowUp", "Enter"].includes(action.key)) {
+            await page.getByRole("option").first().waitFor({ state: "visible", timeout: 10000 }).catch(() => undefined);
+            await sleep(200);
+          }
+          await loc.focus();
+        }
         await page.keyboard.press(action.key);
         break;
       case "wait":

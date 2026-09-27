@@ -32,7 +32,8 @@ Método de trabajo:
 - Cada acción exitosa (click, fill, select, press, wait, goto) queda registrada como pendiente. Cuando el objetivo de un paso se cumpla, llama commit_step con su id y el elemento a resaltar: esas acciones pasan al plan.
 - El plan se re-ejecutará tal cual desde el inicio de sesión y se verá en el video: no debe incluir búsquedas fallidas ni clics de prueba. Si exploraste de más, pasa en commit_step la lista limpia de acciones (se verifica sola) o usa restart y repite solo lo necesario.
 - Asegúrate de que cada paso deja el formulario en un estado válido para los siguientes (campos obligatorios como "Representante de Venta" —cualquiera sirve—, tipo de documento del cliente compatible con el comprobante, etc.).
-- Para esperar a que algo aparezca, agrega una acción wait con el elemento esperado; no uses esperas fijas largas.
+- Para esperar a que algo aparezca, agrega una acción wait con el elemento esperado; no uses esperas fijas largas. En buscadores/autocompletar, después de escribir agrega un wait de la opción esperada y luego haz clic en ella (la grabación escribe más lento que tú).
+- Evita selectores css por posición (p. ej. "primera fila"); identifica filas por su texto (número de documento, cliente).
 - Sé eficiente: no describas cada acción, simplemente ejecútalas.`;
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: redact(t) }] });
