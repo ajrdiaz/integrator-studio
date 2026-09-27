@@ -74,7 +74,8 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
       throw e;
     }
   }
-  if (opts.formats?.length) storyboard = { ...storyboard, formats: opts.formats };
+  // Formatos a renderizar: los pedidos explícitamente; si no, los del pedido original (por defecto solo 16:9).
+  const formats: Format[] = opts.formats?.length ? opts.formats : job.manifest.request.formats.length ? job.manifest.request.formats : ["16x9"];
   if (stop("storyboard")) return job;
 
   // 2. Exploración del ERP (agente) y grabación determinista ─────────────────
@@ -161,14 +162,19 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   if (stop("compose")) return job;
 
   // 5. Render ────────────────────────────────────────────────────────────────
-  const renderHash = hash({ timeline, formats: storyboard.formats });
-  if (job.stage("render").status === "done" && job.stage("render").inputHash === renderHash) {
-    onProgress("render", "sin cambios; se conserva la última versión");
+  // Si el timeline no cambió, se reutiliza la última versión y solo se generan los formatos que falten.
+  const timelineHash = hash(timeline);
+  const lastVersion = job.nextRenderVersion() - 1;
+  const last = job.manifest.renders.filter((r) => r.version === lastVersion);
+  const reuse = opts.from !== "render" && last.length > 0 && last.every((r) => r.timelineHash === timelineHash);
+  const version = reuse ? lastVersion : lastVersion + 1;
+  const missing = reuse ? formats.filter((f) => !last.some((r) => r.format === f)) : formats;
+  if (!missing.length) {
+    onProgress("render", `sin cambios; v${version} ya tiene ${formats.join(", ")}`);
     return job;
   }
-  const version = job.nextRenderVersion();
   try {
-    for (const format of storyboard.formats) {
+    for (const format of missing) {
       const rel = `renders/v${version}/${format}.mp4`;
       onProgress("render", `v${version} ${format}…`);
       await renderVideo({ timeline, format, outFile: job.path(rel), assetsDir: job.dir });
@@ -178,11 +184,12 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
         file: rel,
         createdAt: new Date().toISOString(),
         storyboardVersion: job.manifest.storyboardVersion,
+        timelineHash,
       });
       job.save();
       onProgress("render", `listo → ${rel}`);
     }
-    job.setStage("render", { status: "done", inputHash: renderHash, error: undefined });
+    job.setStage("render", { status: "done", inputHash: timelineHash, error: undefined });
   } catch (e) {
     job.setStage("render", { status: "failed", error: redact((e as Error).message) });
     throw e;

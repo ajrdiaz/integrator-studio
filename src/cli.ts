@@ -18,7 +18,8 @@ Opciones:
   --job <id>            Reanudar/regenerar un job existente (jobs/<id>)
   --from <etapa>        Rehacer desde: ${STAGES.join(", ")}
   --until <etapa>       Detenerse después de esa etapa
-  --formats <lista>     16x9,9x16,1x1 o "all"
+  --formats <lista>     16x9,9x16,1x1 o "all" (por defecto 16x9; si el contenido no cambió,
+                        solo se generan los formatos que falten en la última versión)
   --storyboard <file>   Usar un storyboard JSON (salta la generación con Claude)
   --batch <file>        Procesar varios pedidos en secuencia
   --tts <proveedor>     elevenlabs (por defecto, TTS_PROVIDER) o silent (prueba sin red)

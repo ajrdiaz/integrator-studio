@@ -136,3 +136,4 @@ label.inline input { width: 90px; }
 .job-req { font-size: 12px; color: var(--muted); }
 .steps li { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
 .step-objective { font-weight: 600; font-size: 13px; }
+.renders-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

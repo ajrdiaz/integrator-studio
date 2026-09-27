@@ -107,7 +107,7 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
 - **Música**: si el storyboard tiene `"music": true`, se usa la primera pista de `assets/music/` (orden alfabético),
   con fade y ducking bajo la voz. `zz-placeholder-pad.mp3` es una pista sintética de prueba: agrega la tuya (con
   licencia) y borra esa.
-- **Formatos**: `--formats all` → 16:9, 9:16 (con zona segura para Reels/TikTok) y 1:1.
+- **Formatos**: por defecto solo 16:9. Los demás se agregan después (`--formats 9x16,1x1` o los botones "+ 9:16" / "+ 1:1" de la interfaz): si el contenido no cambió, se renderiza solo lo que falta dentro de la misma versión. 9:16 incluye zona segura para Reels/TikTok.
 
 ## Tutoriales: exploración y grabación del ERP
 

@@ -46,7 +46,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
       if (v.storyboard) {
         setDraft(v.storyboard);
         setJsonText(JSON.stringify(v.storyboard, null, 2));
-        setFormats(v.storyboard.formats);
+        setFormats(v.manifest.request.formats.length ? v.manifest.request.formats : ["16x9"]);
       }
     });
   }, [load]);
@@ -298,7 +298,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
               <Log events={events} />
             </div>
 
-            <Renders view={view} />
+            <Renders view={view} disabled={running} onAdd={(f) => produce({ formats: [f] })} />
           </section>
         </div>
       )}
@@ -406,14 +406,24 @@ const Log: React.FC<{ events: RunEvent[] }> = ({ events }) => {
   );
 };
 
-const Renders: React.FC<{ view: JobView }> = ({ view }) => {
+const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) => void }> = ({ view, disabled, onAdd }) => {
   const m = view.manifest;
   const last = m.renders.reduce((a, r) => Math.max(a, r.version), 0);
   const files = m.renders.filter((r) => r.version === last);
   if (!files.length) return null;
+  const missing = FORMATS.filter((f) => !files.some((r) => r.format === f));
   return (
     <div className="card renders">
-      <h3>Render v{last}</h3>
+      <div className="renders-head">
+        <h3>Render v{last}</h3>
+        <span className="links">
+          {missing.map((f) => (
+            <button key={f} className="ghost small" disabled={disabled} onClick={() => onAdd(f)} title="Genera este formato con el mismo contenido">
+              + {f.replace("x", ":")}
+            </button>
+          ))}
+        </span>
+      </div>
       <div className="render-grid">
         {files.map((r) => (
           <figure key={r.file} className={`f${r.format}`}>
