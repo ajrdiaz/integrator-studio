@@ -73,6 +73,9 @@ textarea:focus, input:focus, select:focus { outline: 2px solid var(--green-soft)
 .stage.done { background: var(--green-soft); color: var(--green-dark); }
 .stage.failed { background: #fbe4e3; color: var(--danger); }
 .stage.skipped { background: #f4f4f4; color: #999; }
+.stage.running { background: #fdf3dc; color: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.alert { background: #fdf0ef; color: var(--danger); border: 1px solid #f5c9c6; border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; font-size: 13px; }
 
 .job-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 1100px) { .job-grid { grid-template-columns: 1fr; } }

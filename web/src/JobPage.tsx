@@ -139,6 +139,13 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
   const m = view.manifest;
   const preview = draft ? previewTimeline(draft, view.timeline, id) : null;
   const versions = [...new Set(m.renders.map((r) => r.version))].sort((a, b) => b - a);
+  const stages = (["storyboard", "explore", "record", "tts", "compose", "render"] as const).filter(
+    (s) => (s !== "explore" && s !== "record") || draft?.scenes.some((x) => x.type === "screen"),
+  );
+  // Etapa en curso: la del último mensaje de progreso mientras el job se procesa.
+  const current = running ? [...events].reverse().find((e) => e.type === "progress")?.stage : undefined;
+  const failed = running ? undefined : stages.find((s) => m.stages[s]?.status === "failed");
+  const STAGE_ICON: Record<string, string> = { done: "✓ ", failed: "✕ ", running: "● ", skipped: "– " };
 
   return (
     <div className="job">
@@ -151,18 +158,23 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
           <p className="muted">Pedido: “{m.request.raw}”</p>
         </div>
         <div className="stages">
-          {(["storyboard", "explore", "record", "tts", "compose", "render"] as const)
-            .filter((s) => (s !== "explore" && s !== "record") || draft?.scenes.some((x) => x.type === "screen"))
-            .map((s) => {
-            const st = m.stages[s]?.status ?? "pending";
+          {stages.map((s) => {
+            const st = s === current ? "running" : m.stages[s]?.status ?? "pending";
             return (
               <span key={s} className={`stage ${st}`} title={m.stages[s]?.error ?? ""}>
+                {STAGE_ICON[st] ?? ""}
                 {STAGE_LABEL[s]}
               </span>
             );
           })}
         </div>
       </header>
+
+      {failed ? (
+        <div className="alert">
+          <strong>Falló la etapa «{STAGE_LABEL[failed]}»:</strong> {m.stages[failed]?.error ?? "error desconocido"}
+        </div>
+      ) : null}
 
       {!draft ? (
         <section className="card">

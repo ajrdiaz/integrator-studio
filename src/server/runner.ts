@@ -70,6 +70,7 @@ export function enqueue(id: string, opts: Omit<RunOptions, "jobId" | "request">)
       emit(id, { type: "status", status: "done", message: "Listo" });
     } catch (e) {
       r.status = "error";
+      log.error(`[${id}] ${(e as Error).message}`);
       emit(id, { type: "status", status: "error", message: (e as Error).message });
     }
   });

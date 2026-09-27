@@ -16,7 +16,9 @@ export interface ErpTarget {
 
 /** Verifica que el destino sea el demo permitido. Lanza error ante cualquier duda. */
 export function erpTarget(): ErpTarget {
-  const url = new URL(requireEnv("ERP_URL", "para explorar y grabar el ERP"));
+  const raw = requireEnv("ERP_URL", "para explorar y grabar el ERP");
+  if (!/^https?:\/\//i.test(raw)) throw new Error(`ERP_URL debe empezar con https:// o http:// (ahora es "${raw}"). Corrígelo en .env.`);
+  const url = new URL(raw);
   if (env.ERP_ENV !== "demo") throw new Error('ERP_ENV debe ser "demo" para explorar o grabar el ERP.');
   const prod = (env.ERP_PROD_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
   if (prod.includes(url.host.toLowerCase())) throw new Error(`${url.host} está marcado como producción (ERP_PROD_HOSTS).`);
@@ -83,7 +85,18 @@ export async function login(page: Page, target = erpTarget()) {
   await page.getByRole("textbox", { name: "Contraseña" }).fill(requireEnv("ERP_PASSWORD", "para iniciar sesión"));
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await page.waitForLoadState("networkidle");
-  await page.getByText(TEST_BANNER).first().waitFor({ timeout: 20000 });
+  const seen = await page
+    .getByText(TEST_BANNER)
+    .first()
+    .waitFor({ timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!seen) {
+    if (new URL(page.url()).pathname.startsWith("/login")) {
+      throw new Error("No se pudo iniciar sesión en el ERP: revisa ERP_USER, ERP_PASSWORD y ERP_COMPANY en .env (y reinicia el servidor).");
+    }
+    throw new Error('Se inició sesión pero no aparece el aviso "Ambiente de Prueba": se detiene por seguridad. ¿ERP_URL apunta al demo?');
+  }
   await assertTestEnvironment(page);
 }
 
