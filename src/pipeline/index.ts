@@ -25,6 +25,8 @@ export interface RunOptions {
   /** Detenerse después de esta etapa (p. ej. "storyboard" para revisar antes de continuar). */
   until?: Stage;
   formats?: Format[];
+  /** Borrador rápido a media resolución (no crea versión). */
+  draft?: boolean;
   /** Proveedor de voz ("elevenlabs", "silent") o false para un video sin voz. */
   tts?: string | false;
 }
@@ -162,6 +164,18 @@ export async function run(opts: RunOptions, onProgress: ProgressFn = (s, m) => l
   if (stop("compose")) return job;
 
   // 5. Render ────────────────────────────────────────────────────────────────
+  if (opts.draft) {
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    for (const format of formats) {
+      const rel = `renders/drafts/${stamp}-${format}.mp4`;
+      onProgress("render", `borrador ${format}…`);
+      await renderVideo({ timeline, format, outFile: job.path(rel), assetsDir: job.dir, draft: true });
+      (job.manifest.drafts ??= []).push({ format, file: rel, createdAt: new Date().toISOString(), storyboardVersion: job.manifest.storyboardVersion });
+      job.save();
+      onProgress("render", `borrador listo → ${rel}`);
+    }
+    return job;
+  }
   // Si el timeline no cambió, se reutiliza la última versión y solo se generan los formatos que falten.
   const timelineHash = hash(timeline);
   const lastVersion = job.nextRenderVersion() - 1;

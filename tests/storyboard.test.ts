@@ -87,3 +87,82 @@ describe("compose con grabación y voz por paso", () => {
     expect(sc.durationInFrames).toBe(pa!.duration + pb!.duration);
   });
 });
+
+describe("editor de clips", () => {
+  const base = () =>
+    Storyboard.parse({
+      kind: "tutorial",
+      title: "t",
+      targetDurationSec: 30,
+      formats: ["16x9"],
+      music: false,
+      scenes: [
+        {
+          id: "s1",
+          type: "screen",
+          onScreenText: "x",
+          narration: "r",
+          estDurationSec: 5,
+          goal: "g",
+          steps: [
+            { id: "a", objective: "o", callout: "c" },
+            { id: "b", objective: "o", callout: "c" },
+          ],
+        },
+      ],
+    });
+  const step = (id: string, start: number, end: number) => ({ sceneId: "s1", stepId: id, callout: "c", start, end, clicks: [], focus: [], highlights: [] });
+  const recording = {
+    file: "r.mp4",
+    width: 1920,
+    height: 1080,
+    durationSec: 20,
+    scenes: [{ sceneId: "s1", start: 0, end: 20 }],
+    steps: [step("a", 0, 10), step("b", 10, 20)],
+    loading: [{ start: 3, end: 6 }],
+  };
+
+  it("salta las pantallas de carga (dejando 0,2 s a cada lado)", () => {
+    const tl = compose(base(), { recording });
+    const p = tl.scenes[0]!.screen!.pieces;
+    expect(p.map((x) => [x.srcStart, x.srcEnd])).toEqual([
+      [0, 3.2],
+      [5.8, 10],
+      [10, 20],
+    ]);
+  });
+
+  it("no salta la carga si skipLoading = false; aplica recortes, velocidad y banderas", () => {
+    const sb = base();
+    sb.skipLoading = false;
+    const sc = sb.scenes[0]!;
+    if (sc.type !== "screen") throw new Error();
+    sc.steps[1]!.clip = { trimStart: 2, trimEnd: 3, speed: 2, zoom: "off", highlight: false };
+    sc.clip = { blur: [{ x: 10, y: 10, width: 100, height: 20 }] };
+    const tl = compose(sb, { recording });
+    const scr = tl.scenes[0]!.screen!;
+    expect(scr.pieces.map((x) => [x.srcStart, x.srcEnd, x.rate])).toEqual([
+      [0, 10, 1],
+      [12, 17, 2],
+    ]);
+    expect(scr.pieces[1]!.duration).toBe(Math.round((5 / 2) * FPS));
+    expect(scr.steps[1]).toMatchObject({ zoomMode: "off", hideHighlight: true });
+    expect(scr.blur).toHaveLength(1);
+  });
+
+  it("zoom fijo exige zona", () => {
+    const sb = base();
+    const sc = sb.scenes[0]!;
+    if (sc.type !== "screen") throw new Error();
+    sc.steps[0]!.clip = { zoom: "fixed" };
+    expect(checkStoryboard(sb)).toHaveLength(1);
+  });
+
+  it("los valores por defecto de cada plantilla son válidos", async () => {
+    const { TEMPLATE_DEFAULTS, TEMPLATE_IDS } = await import("../src/schemas/templates");
+    for (const t of TEMPLATE_IDS) {
+      const ok = Storyboard.safeParse({ ...base(), scenes: [{ id: "s1", type: "motion", template: t, onScreenText: "x", narration: "y", estDurationSec: 3, props: TEMPLATE_DEFAULTS[t] }] }).success;
+      expect(ok, t).toBe(true);
+    }
+  });
+});

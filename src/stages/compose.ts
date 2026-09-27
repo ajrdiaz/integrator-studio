@@ -56,28 +56,67 @@ export function compose(sb: Storyboard, opts: ComposeOptions = {}): Timeline {
           focus: st.focus.map((f) => ({ ...f, t: f.t - seg.start })),
         }));
       const segLen = seg.end - seg.start;
+      const sceneSteps = scene.type === "screen" ? scene.steps : [];
+      const clipOf = (id: string) => sceneSteps.find((x) => x.id === id)?.clip;
+      for (const st of steps) {
+        const c = clipOf(st.stepId);
+        if (c?.zoom) st.zoomMode = c.zoom;
+        if (c?.zoomBox) st.zoomBox = c.zoomBox;
+        if (c?.highlight === false) st.hideHighlight = true;
+      }
+      // Pantallas de carga del ERP: se saltan (dejando 0,2 s a cada lado para que el corte se entienda).
+      const skips =
+        sb.skipLoading === false
+          ? []
+          : (opts.recording.loading ?? [])
+              .map((l) => ({ start: l.start - seg.start + 0.2, end: l.end - seg.start - 0.2 }))
+              .filter((l) => l.end - l.start > 0.3);
+      const keep = (a: number, b: number) => {
+        let parts = [{ a, b }];
+        for (const k of skips) parts = parts.flatMap((p) => (k.end <= p.a || k.start >= p.b ? [p] : [{ a: p.a, b: k.start }, { a: k.end, b: p.b }]));
+        parts = parts.filter((p) => p.b - p.a > 0.05);
+        return parts.length ? parts : [{ a, b: Math.max(b, a + 0.2) }];
+      };
       const byStep = scene.type === "screen" && steps.length > 0 && steps.some((st) => opts.audio?.[stepKey(scene.id, st.stepId)]);
-      // Tramos: uno por paso si hay voz por paso; si no, uno para toda la escena con la voz de la escena.
-      const spans = byStep
-        ? steps.map((st, i) => ({ srcStart: i === 0 ? 0 : st.start, srcEnd: steps[i + 1]?.start ?? segLen, voice: opts.audio?.[stepKey(scene.id, st.stepId)] }))
-        : [{ srcStart: 0, srcEnd: segLen, voice: audio }];
-      let from = 0;
-      const pieces = spans.map((sp, i) => {
-        const len = sp.srcEnd - sp.srcStart;
-        const lead = byStep ? 0.2 : leadIn;
-        const need = sp.voice ? lead + sp.voice.durationSec + (byStep ? 0.3 : tail) : 0;
-        // Acelera hasta 1,5x si el tramo es mucho más largo que su voz; si la voz es más larga, se congela el final.
-        const rate = need > 0 && len > need * 1.1 ? Math.min(1.5, len / need) : 1;
-        const duration = toFrames(Math.max(len / rate, need));
-        if (byStep && sp.voice) {
-          stepVoices.push({ key: stepKey(scene.id, steps[i]!.stepId), src: sp.voice.src, durationInFrames: toFrames(sp.voice.durationSec), offsetFrames: from + toFrames(lead) });
-        }
-        const piece = { srcStart: sp.srcStart, srcEnd: sp.srcEnd, rate, from, duration };
-        from += duration;
-        return piece;
+      // Tramos por paso (con recortes); la voz va por paso o, si no hay, una sola para toda la escena.
+      const stepSpans = (steps.length ? steps : [{ stepId: "", start: 0 }]).map((st, i, arr) => {
+        const c = st.stepId ? clipOf(st.stepId) : undefined;
+        const a = (i === 0 ? 0 : st.start) + (c?.trimStart ?? 0);
+        const b = (arr[i + 1]?.start ?? segLen) - (c?.trimEnd ?? 0);
+        return { stepId: st.stepId, parts: keep(a, Math.max(b, a + 0.2)), speed: c?.speed };
       });
+      const groups = byStep
+        ? stepSpans.map((sp) => ({ spans: [sp], voice: opts.audio?.[stepKey(scene.id, sp.stepId)], key: stepKey(scene.id, sp.stepId) }))
+        : [{ spans: stepSpans, voice: audio, key: "" }];
+      let from = 0;
+      const pieces: NonNullable<TimelineScene["screen"]>["pieces"] = [];
+      for (const g of groups) {
+        const lead = byStep ? 0.2 : leadIn;
+        const need = g.voice ? lead + g.voice.durationSec + (byStep ? 0.3 : tail) : 0;
+        const len = g.spans.reduce((acc, sp) => acc + sp.parts.reduce((x, p) => x + p.b - p.a, 0), 0);
+        // Automático: acelera hasta 1,5x si el tramo es mucho más largo que su voz; si la voz es más larga, se congela el final.
+        const auto = need > 0 && len > need * 1.1 ? Math.min(1.5, len / need) : 1;
+        const groupStart = from;
+        for (const sp of g.spans) {
+          for (const p of sp.parts) {
+            const rate = sp.speed ?? auto;
+            const duration = Math.max(1, toFrames((p.b - p.a) / rate));
+            pieces.push({ srcStart: p.a, srcEnd: p.b, rate, from, duration });
+            from += duration;
+          }
+        }
+        const extra = toFrames(need) - (from - groupStart);
+        if (extra > 0 && pieces.length) {
+          pieces[pieces.length - 1]!.duration += extra;
+          from += extra;
+        }
+        if (byStep && g.voice) {
+          stepVoices.push({ key: g.key, src: g.voice.src, durationInFrames: toFrames(g.voice.durationSec), offsetFrames: groupStart + toFrames(lead) });
+        }
+      }
       durationSec = from / FPS;
-      screen = { src: opts.recording.file, width: opts.recording.width, height: opts.recording.height, start: seg.start, end: seg.end, pieces, steps };
+      const blur = scene.type === "screen" ? scene.clip?.blur : undefined;
+      screen = { src: opts.recording.file, width: opts.recording.width, height: opts.recording.height, start: seg.start, end: seg.end, pieces, steps, ...(blur?.length ? { blur } : {}) };
     }
     const durationInFrames = toFrames(durationSec);
     const offsetFrames = toFrames(leadIn);

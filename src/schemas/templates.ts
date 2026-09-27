@@ -87,3 +87,19 @@ export const TEMPLATE_DOCS: Record<TemplateId, string> = {
   comparison: "Dos columnas lado a lado (antes/competencia vs Integrator). Para contrastes.",
   timeline: "Línea de tiempo con 2-6 hitos. Para procesos, implementación o pasos.",
 };
+
+/** Props de ejemplo para crear una escena nueva desde la interfaz. */
+export const TEMPLATE_DEFAULTS: Record<TemplateId, unknown> = {
+  "kinetic-title": { subline: "Frase de apoyo", emphasis: [] },
+  counter: { items: [{ value: 100, suffix: "%", label: "Etiqueta del número" }] },
+  dashboard: {
+    kpis: [
+      { label: "Ventas del mes", value: "S/ 120,000", delta: "+8%" },
+      { label: "Cuentas por cobrar", value: "S/ 35,000" },
+    ],
+    chart: { kind: "bar", labels: ["Ene", "Feb", "Mar", "Abr"], values: [80, 95, 90, 120] },
+  },
+  checklist: { items: ["Primer beneficio", "Segundo beneficio", "Tercer beneficio"] },
+  comparison: { left: { label: "Antes", points: ["Punto 1", "Punto 2"] }, right: { label: "Integrator", points: ["Punto 1", "Punto 2"] } },
+  timeline: { milestones: [{ label: "Paso 1" }, { label: "Paso 2" }, { label: "Paso 3" }] },
+};

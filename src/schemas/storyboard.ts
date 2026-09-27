@@ -12,6 +12,21 @@ export const FORMATS = ["16x9", "9x16", "1x1"] as const;
 export const Format = z.enum(FORMATS);
 export type Format = z.infer<typeof Format>;
 
+/** Rectángulo en píxeles de la grabación del ERP (1920x1080). */
+export const Box = z.object({ x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive() });
+export type Box = z.infer<typeof Box>;
+
+/** Ediciones del clip de un paso (las hace la persona en el editor; el guionista no las completa). */
+export const StepClip = z.object({
+  trimStart: z.number().min(0).optional().describe("Segundos a recortar al inicio del paso"),
+  trimEnd: z.number().min(0).optional().describe("Segundos a recortar al final del paso"),
+  speed: z.number().min(0.5).max(3).optional().describe("Velocidad fija; sin valor = automática"),
+  zoom: z.enum(["auto", "off", "fixed"]).optional(),
+  zoomBox: Box.optional().describe("Zona fija para zoom = fixed"),
+  highlight: z.boolean().optional().describe("false = sin anillo ni callout"),
+});
+export type StepClip = z.infer<typeof StepClip>;
+
 const sceneId = z.string().regex(/^[a-z0-9-]+$/).describe('Id estable en kebab-case, p. ej. "s1-gancho"');
 
 const sceneBase = {
@@ -42,6 +57,7 @@ export const ScreenStep = z.object({
     .string()
     .describe("Locución de este paso (1-2 frases), se dice mientras se ve el paso en pantalla")
     .optional(),
+  clip: StepClip.optional().describe("Uso interno del editor de clips; no lo completes"),
 });
 
 export const ScreenScene = z.object({
@@ -49,6 +65,10 @@ export const ScreenScene = z.object({
   ...sceneBase,
   goal: z.string().describe("Objetivo de la escena dentro del ERP"),
   steps: z.array(ScreenStep).min(1).max(12),
+  clip: z
+    .object({ blur: z.array(Box).optional().describe("Zonas a difuminar durante toda la escena") })
+    .optional()
+    .describe("Uso interno del editor de clips; no lo completes"),
 });
 export type ScreenScene = z.infer<typeof ScreenScene>;
 
@@ -62,6 +82,7 @@ export const Storyboard = z.object({
   formats: z.array(Format).min(1),
   music: z.boolean().describe("Usar música de fondo"),
   sources: z.array(z.string()).describe("URLs de manuales consultadas").optional(),
+  skipLoading: z.boolean().optional().describe("Uso interno: false = no saltar las pantallas de carga del ERP"),
   scenes: z.array(Scene).min(1).max(30),
 });
 export type Storyboard = z.infer<typeof Storyboard>;
@@ -76,8 +97,10 @@ export function checkStoryboard(sb: Storyboard): string[] {
     if (s.type === "motion" && s.template === "dashboard" && s.props.chart.labels.length !== s.props.chart.values.length) {
       errors.push(`${s.id}: chart.labels y chart.values deben tener la misma longitud`);
     }
-    if (s.type === "screen" && sb.kind === "promo") {
-      // permitido, pero requiere Fase 3; no es error.
+    if (s.type === "screen") {
+      for (const st of s.steps) {
+        if (st.clip?.zoom === "fixed" && !st.clip.zoomBox) errors.push(`${s.id}/${st.id}: zoom fijo sin zona`);
+      }
     }
   }
   return errors;

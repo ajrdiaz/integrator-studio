@@ -31,6 +31,8 @@ export interface TimelineScene {
      */
     pieces: { srcStart: number; srcEnd: number; rate: number; from: number; duration: number }[];
     steps: RecordedStep[];
+    /** Zonas difuminadas (coordenadas de la grabación). */
+    blur?: { x: number; y: number; width: number; height: number }[];
   };
 }
 

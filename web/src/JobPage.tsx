@@ -2,6 +2,8 @@ import React from "react";
 import { FORMATS, Storyboard as StoryboardSchema, checkStoryboard, type Format, type Storyboard } from "../../src/schemas/storyboard";
 import { api, type JobView, type RunBody, type RunEvent } from "./api";
 import { Preview, previewTimeline } from "./Preview";
+import { ClipEditor } from "./ClipEditor";
+import { TEMPLATE_DEFAULTS, TEMPLATE_IDS, TEMPLATE_DOCS, type TemplateId } from "../../src/schemas/templates";
 
 const STAGE_LABEL: Record<string, string> = {
   storyboard: "Guion",
@@ -31,6 +33,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
   const [events, setEvents] = React.useState<RunEvent[]>([]);
   const [formats, setFormats] = React.useState<Format[]>(["16x9"]);
   const [voice, setVoice] = React.useState("");
+  const [draftMode, setDraftMode] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const dirtyRef = React.useRef(false);
 
@@ -110,7 +113,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
     }
   };
 
-  const body = (extra: RunBody = {}): RunBody => ({ formats, tts: voice === "none" ? false : voice || undefined, ...extra });
+  const body = (extra: RunBody = {}): RunBody => ({ formats, tts: voice === "none" ? false : voice || undefined, draft: draftMode || undefined, ...extra });
 
   const produce = async (extra: RunBody = {}) => {
     if (dirty && !(await save())) return;
@@ -198,6 +201,8 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
             {tab === "scenes" ? (
               <SceneList
                 sb={draft}
+                jobId={id}
+                timeline={view.timeline}
                 stale={preview?.staleVoice ?? []}
                 disabled={running}
                 onChange={updateDraft}
@@ -269,9 +274,16 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
                   ))}
                 </select>
               </div>
+              <div className="row">
+                <span className="label">Calidad</span>
+                <label className="check">
+                  <input type="checkbox" checked={draftMode} onChange={(e) => setDraftMode(e.target.checked)} />
+                  Borrador rápido (media resolución, no crea versión)
+                </label>
+              </div>
               <div className="row buttons">
                 <button className="primary" disabled={running || !formats.length || errors.length > 0} onClick={() => produce()}>
-                  {running ? "Procesando…" : dirty ? "Guardar y producir" : "Producir video"}
+                  {running ? "Procesando…" : `${dirty ? "Guardar y producir" : "Producir"}${draftMode ? " borrador" : " video"}`}
                 </button>
                 <button className="ghost" disabled={running} onClick={() => produce({ from: "render" })} title="Vuelve a renderizar sin tocar voz ni guion">
                   Solo render
@@ -298,7 +310,7 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
               <Log events={events} />
             </div>
 
-            <Renders view={view} disabled={running} onAdd={(f) => produce({ formats: [f] })} />
+            <Renders view={view} disabled={running} onAdd={(f) => produce({ formats: [f], draft: undefined })} />
           </section>
         </div>
       )}
@@ -308,11 +320,40 @@ export const JobPage: React.FC<{ id: string; onChanged: () => void }> = ({ id, o
 
 const SceneList: React.FC<{
   sb: Storyboard;
+  jobId: string;
+  timeline: JobView["timeline"];
   stale: string[];
   disabled: boolean;
   onChange: (sb: Storyboard) => void;
   onVoice: (id: string) => void;
-}> = ({ sb, stale, disabled, onChange, onVoice }) => {
+}> = ({ sb, jobId, timeline, stale, disabled, onChange, onVoice }) => {
+  const [newTemplate, setNewTemplate] = React.useState<TemplateId>("kinetic-title");
+  const [openClip, setOpenClip] = React.useState<string | null>(null);
+  const move = (i: number, d: -1 | 1) => {
+    const scenes = [...sb.scenes];
+    const j = i + d;
+    if (j < 0 || j >= scenes.length) return;
+    [scenes[i], scenes[j]] = [scenes[j]!, scenes[i]!];
+    onChange({ ...sb, scenes });
+  };
+  const remove = (i: number) => {
+    if (sb.scenes.length <= 1 || !confirm(`¿Eliminar la escena ${sb.scenes[i]!.id}?`)) return;
+    onChange({ ...sb, scenes: sb.scenes.filter((_, j) => j !== i) });
+  };
+  const add = () => {
+    let n = sb.scenes.length + 1;
+    while (sb.scenes.some((x) => x.id === `s${n}-nueva`)) n++;
+    const scene = {
+      id: `s${n}-nueva`,
+      type: "motion" as const,
+      template: newTemplate,
+      onScreenText: "Nuevo titular",
+      narration: "Escribe aquí la narración de esta escena.",
+      estDurationSec: 4,
+      props: structuredClone(TEMPLATE_DEFAULTS[newTemplate]),
+    } as Storyboard["scenes"][number];
+    onChange({ ...sb, scenes: [...sb.scenes, scene] });
+  };
   const set = (i: number, patch: Partial<Storyboard["scenes"][number]>) => {
     const scenes = sb.scenes.map((s, j) => (j === i ? ({ ...s, ...patch } as typeof s) : s));
     onChange({ ...sb, scenes });
@@ -329,6 +370,12 @@ const SceneList: React.FC<{
           <input type="checkbox" checked={sb.music} onChange={(e) => onChange({ ...sb, music: e.target.checked })} />
           Música de fondo
         </label>
+        {sb.scenes.some((x) => x.type === "screen") ? (
+          <label className="check" title="Recorta los tramos en que el ERP estaba cargando">
+            <input type="checkbox" checked={sb.skipLoading !== false} onChange={(e) => onChange({ ...sb, skipLoading: e.target.checked ? undefined : false })} />
+            Saltar pantallas de carga
+          </label>
+        ) : null}
         <span className="muted">≈ {total.toFixed(1)} s con intro y cierre</span>
       </div>
       {sb.scenes.map((s, i) => (
@@ -339,10 +386,35 @@ const SceneList: React.FC<{
             <span className="tag">{s.type === "motion" ? s.template : "pantalla"}</span>
             {stale.includes(s.id) ? <span className="tag warn">voz desactualizada</span> : null}
             <span className="spacer" />
-            <button className="ghost small" disabled={disabled} onClick={() => onVoice(s.id)} title="Sintetiza de nuevo la voz de esta escena y vuelve a renderizar">
-              Regenerar voz
+            <button className="ghost small" disabled={disabled || i === 0} onClick={() => move(i, -1)} title="Subir">
+              ↑
+            </button>
+            <button className="ghost small" disabled={disabled || i === sb.scenes.length - 1} onClick={() => move(i, 1)} title="Bajar">
+              ↓
+            </button>
+            {s.type === "screen" ? (
+              <button className="ghost small" onClick={() => setOpenClip(openClip === s.id ? null : s.id)}>
+                {openClip === s.id ? "Cerrar editor de clip" : "Editar clip"}
+              </button>
+            ) : (
+              <button className="ghost small" disabled={disabled} onClick={() => onVoice(s.id)} title="Sintetiza de nuevo la voz de esta escena y vuelve a renderizar">
+                Regenerar voz
+              </button>
+            )}
+            <button className="ghost small danger" disabled={disabled || sb.scenes.length <= 1} onClick={() => remove(i)} title="Eliminar escena">
+              ✕
             </button>
           </div>
+          {s.type === "screen" && openClip === s.id ? (
+            <ClipEditor
+              jobId={jobId}
+              scene={s}
+              screen={timeline?.scenes.find((x) => x.scene.id === s.id)?.screen}
+              disabled={disabled}
+              onChange={(next) => onChange({ ...sb, scenes: sb.scenes.map((x, j) => (j === i ? next : x)) })}
+              onStepVoice={(stepId) => onVoice(`${s.id}--${stepId}`)}
+            />
+          ) : null}
           <label>
             Texto en pantalla
             <input value={s.onScreenText} onChange={(e) => set(i, { onScreenText: e.target.value })} />
@@ -384,6 +456,18 @@ const SceneList: React.FC<{
           ) : null}
         </div>
       ))}
+      <div className="add-scene">
+        <select value={newTemplate} onChange={(e) => setNewTemplate(e.target.value as TemplateId)}>
+          {TEMPLATE_IDS.map((t) => (
+            <option key={t} value={t} title={TEMPLATE_DOCS[t]}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <button className="ghost" disabled={disabled} onClick={add}>
+          + Agregar escena
+        </button>
+      </div>
       <p className="muted small">Los datos de cada plantilla (ítems, cifras, gráficos) se editan en la pestaña JSON.</p>
     </div>
   );
@@ -410,8 +494,22 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
   const m = view.manifest;
   const last = m.renders.reduce((a, r) => Math.max(a, r.version), 0);
   const files = m.renders.filter((r) => r.version === last);
-  if (!files.length) return null;
+  const latestDraft = m.drafts?.at(-1);
+  if (!files.length) {
+    return latestDraft ? (
+      <div className="card renders">
+        <h3>Borrador</h3>
+        <div className="render-grid">
+          <figure className={`f${latestDraft.format}`}>
+            <video src={`/jobs/${m.id}/${latestDraft.file}`} controls preload="metadata" />
+            <figcaption>{latestDraft.format.replace("x", ":")} · borrador (media resolución)</figcaption>
+          </figure>
+        </div>
+      </div>
+    ) : null;
+  }
   const missing = FORMATS.filter((f) => !files.some((r) => r.format === f));
+  const lastDraft = m.drafts?.at(-1);
   return (
     <div className="card renders">
       <div className="renders-head">
@@ -424,6 +522,14 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
           ))}
         </span>
       </div>
+      {lastDraft && lastDraft.createdAt > (files[0]?.createdAt ?? "") ? (
+        <div className="render-grid">
+          <figure className={`f${lastDraft.format}`}>
+            <video src={`/jobs/${m.id}/${lastDraft.file}`} controls preload="metadata" />
+            <figcaption>{lastDraft.format.replace("x", ":")} · último borrador (media resolución)</figcaption>
+          </figure>
+        </div>
+      ) : null}
       <div className="render-grid">
         {files.map((r) => (
           <figure key={r.file} className={`f${r.format}`}>

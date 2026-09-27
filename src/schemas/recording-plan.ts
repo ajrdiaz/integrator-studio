@@ -84,6 +84,10 @@ export interface RecordedStep {
   focus: { t: number; box: { x: number; y: number; width: number; height: number } }[];
   /** Ventanas de resaltado (anillo + callout): antes del clic clave del paso, o sobre el resultado al final. */
   highlights: { start: number; end: number; box: { x: number; y: number; width: number; height: number } }[];
+  /** Ediciones del clip aplicadas en la composición. */
+  zoomMode?: "auto" | "off" | "fixed";
+  zoomBox?: { x: number; y: number; width: number; height: number };
+  hideHighlight?: boolean;
 }
 
 export interface Recording {
@@ -93,4 +97,6 @@ export interface Recording {
   durationSec: number;
   scenes: { sceneId: string; start: number; end: number }[];
   steps: RecordedStep[];
+  /** Tramos en que el ERP estaba cargando (se pueden saltar en la composición). */
+  loading?: { start: number; end: number }[];
 }

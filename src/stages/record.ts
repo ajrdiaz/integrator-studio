@@ -62,6 +62,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
     const now = () => Date.now() / 1000 - t0;
 
     const steps: RecordedStep[] = [];
+    const loading: { start: number; end: number }[] = [];
     const scenes: Recording["scenes"] = [];
     let current: RecordedStep | undefined;
     const exec = new Executor(page, {
@@ -69,6 +70,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
       seed: 20260926,
       onClick: (x, y) => current?.clicks.push({ t: now(), x, y }),
       onFocus: (box) => current?.focus.push({ t: now(), box }),
+      onBusy: (a, b) => loading.push({ start: a / 1000 - t0, end: b / 1000 - t0 }),
       onEmphasis: (box, start) => {
         if (!current) return;
         if (start) current.highlights.push({ start: now(), end: now(), box });
@@ -138,6 +140,7 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
       durationSec: mediaDuration(out),
       scenes,
       steps,
+      loading,
     };
   } finally {
     await browser.close();

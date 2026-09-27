@@ -1,4 +1,5 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { runFf } from "../media";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { ASSETS_DIR, JOBS_DIR, ROOT_DIR } from "../config";
@@ -34,7 +35,7 @@ const runOpts = (body: Record<string, unknown>) => {
   const from = STAGES.includes(body.from as Stage) ? (body.from as Stage) : undefined;
   const until = STAGES.includes(body.until as Stage) ? (body.until as Stage) : undefined;
   const tts = body.tts === false ? (false as const) : typeof body.tts === "string" && body.tts ? body.tts : undefined;
-  return { formats: formats?.length ? formats : undefined, from, until, tts };
+  return { formats: formats?.length ? formats : undefined, from, until, tts, draft: body.draft === true };
 };
 
 const jobView = (job: Job) => ({
@@ -116,6 +117,24 @@ app.post("/api/jobs/:id/scenes/:scene/voice", (req, res) => {
   const scene = String(req.params.scene);
   if (!/^[a-z0-9-]+$/.test(scene)) return void res.status(400).json({ error: "escena inválida" });
   res.json({ status: regenerateSceneVoice(job, scene, runOpts(req.body ?? {})) });
+});
+
+/** Fotograma de la grabación del ERP en el segundo `t` (PNG, con caché). Lo usa el editor de clips. */
+app.get("/api/jobs/:id/frame", (req, res) => {
+  const job = openJob(req, res);
+  if (!job) return;
+  const t = Math.max(0, Math.round(Number(req.query.t ?? 0) * 10) / 10);
+  if (!Number.isFinite(t) || !job.exists("recordings/tutorial.mp4")) return void res.status(404).end();
+  const rel = `recordings/thumbs/${t.toFixed(1)}.png`;
+  if (!job.exists(rel)) {
+    mkdirSync(job.path("recordings/thumbs"), { recursive: true });
+    try {
+      runFf("ffmpeg", ["-v", "error", "-y", "-ss", String(t), "-i", job.path("recordings/tutorial.mp4"), "-frames:v", "1", "-vf", "scale=1280:-2", job.path(rel)]);
+    } catch {
+      return void res.status(500).end();
+    }
+  }
+  res.sendFile(job.path(rel));
 });
 
 /** Progreso en vivo (Server-Sent Events). */

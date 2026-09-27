@@ -24,6 +24,7 @@ Opciones:
   --batch <file>        Procesar varios pedidos en secuencia
   --tts <proveedor>     elevenlabs (por defecto, TTS_PROVIDER) o silent (prueba sin red)
   --no-voice            Video sin locución ni subtítulos
+  --draft               Borrador rápido a media resolución (no crea versión)
 `;
 
 function parseFormats(v?: string): Format[] | undefined {
@@ -52,6 +53,7 @@ async function main() {
       batch: { type: "string" },
       tts: { type: "string" },
       "no-voice": { type: "boolean" },
+      draft: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -65,6 +67,7 @@ async function main() {
     formats: parseFormats(values.formats),
     storyboardFile: values.storyboard,
     tts: values["no-voice"] ? (false as const) : values.tts,
+    draft: values.draft,
   };
 
   const requests = values.batch

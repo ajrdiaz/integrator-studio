@@ -70,9 +70,11 @@ export interface RenderOptions {
   outFile: string;
   /** Directorio del job, servido para audios/grabaciones. */
   assetsDir: string;
+  /** Borrador: media resolución y compresión rápida (para revisar). */
+  draft?: boolean;
 }
 
-export async function renderVideo({ timeline, format, outFile, assetsDir }: RenderOptions) {
+export async function renderVideo({ timeline, format, outFile, assetsDir, draft }: RenderOptions) {
   const serveUrl = await getBundle();
   const server = await serveDir(assetsDir);
   try {
@@ -85,7 +87,9 @@ export async function renderVideo({ timeline, format, outFile, assetsDir }: Rend
       composition,
       serveUrl,
       codec: "h264",
-      crf: 18,
+      crf: draft ? 28 : 18,
+      scale: draft ? 0.5 : 1,
+      x264Preset: draft ? "veryfast" : "medium",
       outputLocation: outFile,
       inputProps,
       browserExecutable: exe,

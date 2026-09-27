@@ -137,3 +137,24 @@ label.inline input { width: 90px; }
 .steps li { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
 .step-objective { font-weight: 600; font-size: 13px; }
 .renders-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.ghost.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.ghost.active { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }
+.add-scene { display: flex; gap: 8px; align-items: center; }
+.add-scene select { width: auto; }
+.clip-editor { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.clip-toolbar { display: flex; align-items: center; gap: 8px; }
+.clip-toolbar select { width: auto; }
+.clip-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0c1f1a; user-select: none; }
+.clip-frame img { width: 100%; height: 100%; display: block; pointer-events: none; object-fit: cover; }
+.clip-frame.drawing { cursor: crosshair; outline: 2px solid var(--green); }
+.clip-box { position: absolute; border: 2px solid; border-radius: 4px; pointer-events: none; }
+.clip-box span { position: absolute; top: -20px; left: -2px; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.clip-box.drag { border-color: var(--green); background: rgba(0,155,114,.15); border-style: dashed; }
+.clip-steps { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.clip-steps th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 6px; font-size: 11.5px; }
+.clip-steps td { padding: 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+.clip-steps tr.current td { background: #fff; }
+.clip-steps input[type=number] { width: 70px; padding: 4px 6px; }
+.clip-steps select { padding: 4px 6px; min-width: 88px; width: auto; }
+.clip-steps input[type=number] { width: 64px; }

@@ -19,6 +19,7 @@ export interface RunBody {
   from?: string;
   until?: string;
   tts?: string | false;
+  draft?: boolean;
 }
 export interface RunEvent {
   t: string;

@@ -41,7 +41,7 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
   );
 
   // Resaltado + callout durante la pausa final de cada paso.
-  const step = screen.steps.find((s) => s.highlights.some((h) => t >= h.start && t < h.end + 0.25));
+  const step = screen.steps.find((s) => !s.hideHighlight && s.highlights.some((h) => t >= h.start && t < h.end + 0.25));
   const hl = step?.highlights.find((h) => t >= h.start && t < h.end + 0.25);
   let overlay: React.ReactNode = null;
   if (step && hl) {
@@ -117,6 +117,25 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
           ) : null}
         </React.Fragment>
       ))}
+      {screen.blur?.map((bx, i) => {
+        const b = project(bx, cam, out);
+        return (
+          <div
+            key={`blur-${i}`}
+            style={{
+              position: "absolute",
+              left: b.x,
+              top: b.y,
+              width: b.width,
+              height: b.height,
+              backdropFilter: `blur(${Math.max(8, 10 * cam.scale)}px)`,
+              WebkitBackdropFilter: `blur(${Math.max(8, 10 * cam.scale)}px)`,
+              background: "rgba(240,244,243,0.35)",
+              borderRadius: 6 * u,
+            }}
+          />
+        );
+      })}
       {overlay}
       <div
         style={{

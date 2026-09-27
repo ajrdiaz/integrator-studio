@@ -49,6 +49,8 @@ export interface ExecOptions {
   /** Se llama con la caja del elemento con el que se va a interactuar (para que la cámara lo siga). */
   onFocus?: (box: { x: number; y: number; width: number; height: number }) => void;
   /** Resaltado antes del clic clave de un paso: se llama al llegar el cursor, antes de hacer clic. */
+  /** Tramo en que se esperó al ERP (red o elemento), en ms de reloj: candidato a "pantalla de carga". */
+  onBusy?: (startMs: number, endMs: number) => void;
   onEmphasis?: (box: { x: number; y: number; width: number; height: number }, start: boolean) => void;
 }
 
@@ -69,7 +71,9 @@ export class Executor {
   }
 
   private async settle() {
+    const t0 = Date.now();
     await this.page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => undefined);
+    if (Date.now() - t0 > 400) this.opts.onBusy?.(t0, Date.now());
   }
 
   private async moveTo(loc: Locator) {
@@ -176,10 +180,13 @@ export class Executor {
         }
         await page.keyboard.press(action.key);
         break;
-      case "wait":
+      case "wait": {
+        const t0 = Date.now();
         if (action.target) await resolve(page, action.target).first().waitFor({ state: "visible", timeout: action.ms ?? 15000 });
         else await sleep(action.ms ?? 500);
+        if (Date.now() - t0 > 400) this.opts.onBusy?.(t0, Date.now());
         break;
+      }
     }
     await this.settle();
     if (this.opts.cinematic) await sleep(250 + this.rand() * 150);

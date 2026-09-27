@@ -11,6 +11,8 @@ export interface Camera {
 export function focusAt(steps: RecordedStep[], t: number): Box | null {
   const step = steps.find((s) => t >= s.start && t < s.end);
   if (!step) return null;
+  if (step.zoomMode === "off") return null;
+  if (step.zoomMode === "fixed" && step.zoomBox) return step.zoomBox;
   const hl = step.highlights.find((h) => t >= h.start - 0.2 && t < h.end + 0.4);
   if (hl) return hl.box;
   // Anticipa un poco el siguiente elemento para que la cámara llegue junto con el cursor.
