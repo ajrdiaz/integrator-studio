@@ -18,6 +18,16 @@ export function focusAt(steps: RecordedStep[], t: number): Box | null {
   return f?.box ?? null;
 }
 
+/** Última zona activa antes de `t` (para que en vertical la cámara no salte al centro de la página). */
+export function lastFocusBefore(steps: RecordedStep[], t: number): Box | null {
+  let best: { t: number; box: Box } | null = null;
+  for (const s of steps) {
+    for (const f of s.focus) if (f.t <= t && (!best || f.t > best.t)) best = f;
+    for (const h of s.highlights) if (h.start <= t && (!best || h.start > best.t)) best = { t: h.start, box: h.box };
+  }
+  return best?.box ?? null;
+}
+
 /**
  * Cámara objetivo: en horizontal, zoom moderado al elemento activo; en vertical/cuadrado, el video cubre el
  * cuadro y la cámara se desplaza para mantener el área activa a la vista (reencuadre).
@@ -60,7 +70,15 @@ export function smoothCamera(
   for (let i = 0; i <= window; i++) {
     const f = Math.max(0, frame - i);
     const w = window + 1 - i; // más peso a lo reciente
-    const cam = clampCamera(targetCamera(focusAt(steps, (f / fps) * rate), src, out), src, out);
+    const t = (f / fps) * rate;
+    const portraitish = out.width / out.height <= 1.2;
+    let target = targetCamera(focusAt(steps, t), src, out);
+    if (portraitish && !focusAt(steps, t)) {
+      // Sin elemento activo: mantener encuadrada la última zona activa (sin zoom extra).
+      const last = lastFocusBefore(steps, t);
+      if (last) target = { ...target, cx: last.x + last.width / 2, cy: last.y + last.height / 2 };
+    }
+    const cam = clampCamera(target, src, out);
     cx += cam.cx * w;
     cy += cam.cy * w;
     scale += cam.scale * w;

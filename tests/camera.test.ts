@@ -61,3 +61,12 @@ describe("recording plan", () => {
     ).toBe(true);
   });
 });
+
+import { lastFocusBefore } from "../remotion/camera";
+describe("cámara vertical", () => {
+  it("recuerda la última zona activa", () => {
+    expect(lastFocusBefore([step], 0.5)).toBeNull();
+    expect(lastFocusBefore([step], 2)?.x).toBe(100);
+    expect(lastFocusBefore([step], 10)).toEqual(box);
+  });
+});

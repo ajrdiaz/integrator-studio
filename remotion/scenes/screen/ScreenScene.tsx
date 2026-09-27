@@ -50,7 +50,9 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
       interpolate(t, [hl.end, hl.end + 0.25], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
     );
     const pad = 10 * u;
-    const bubbleAbove = b.y > height * 0.3;
+    // Arriba del elemento salvo que choque con el chip del título (zona superior).
+    const chipBottom = (isPortrait ? 170 : 120) * u;
+    const bubbleAbove = b.y - pad - 90 * u > chipBottom && b.y > height * 0.3;
     const bubbleTop = bubbleAbove ? b.y - pad - 22 * u : b.y + b.height + pad + 22 * u;
     const bubbleLeft = Math.min(width - 40 * u, Math.max(40 * u, b.x + b.width / 2));
     overlay = (
