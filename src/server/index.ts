@@ -4,7 +4,9 @@ import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { ASSETS_DIR, JOBS_DIR, ROOT_DIR } from "../config";
 import { Job, STAGES, type Stage } from "../jobs/store";
+import { redact } from "../log";
 import { reviewLatest } from "../stages/review";
+import { visualReviewLatest } from "../stages/visual-review";
 import { log } from "../log";
 import { parseRequest } from "../request";
 import { FORMATS, Storyboard, checkStoryboard, type Format } from "../schemas/storyboard";
@@ -130,6 +132,19 @@ app.post("/api/jobs/:id/review", (req, res) => {
     res.json(jobView(job));
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** Revisión visual con Claude de la última versión (un cuadro por paso). Tiene costo; tarda ~20 s por formato. */
+app.post("/api/jobs/:id/review/visual", async (req, res) => {
+  const job = openJob(req, res);
+  if (!job) return;
+  if (["queued", "running"].includes(runtimeStatus(job.id))) return void res.status(409).json({ error: "El job se está procesando" });
+  try {
+    await visualReviewLatest(job);
+    res.json(jobView(job));
+  } catch (e) {
+    res.status(500).json({ error: redact((e as Error).message) });
   }
 });
 

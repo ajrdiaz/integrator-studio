@@ -510,8 +510,19 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
   onAdd,
   onReviewed,
 }) => {
-  const [reviewing, setReviewing] = React.useState(false);
+  const [reviewing, setReviewing] = React.useState<"auto" | "visual" | null>(null);
   const [reviewError, setReviewError] = React.useState("");
+  const runReview = async (kind: "auto" | "visual") => {
+    setReviewing(kind);
+    setReviewError("");
+    try {
+      onReviewed(await (kind === "visual" ? api.reviewVisual(m.id) : api.review(m.id)));
+    } catch (e) {
+      setReviewError((e as Error).message);
+    } finally {
+      setReviewing(null);
+    }
+  };
   const m = view.manifest;
   const last = m.renders.reduce((a, r) => Math.max(a, r.version), 0);
   const files = m.renders.filter((r) => r.version === last);
@@ -538,21 +549,19 @@ const Renders: React.FC<{ view: JobView; disabled: boolean; onAdd: (f: Format) =
         <span className="links">
           <button
             className="ghost small"
-            disabled={disabled || reviewing}
+            disabled={disabled || !!reviewing}
             title="Guion vs. grabación, cuadros negros, imagen quieta, silencios y volumen"
-            onClick={async () => {
-              setReviewing(true);
-              setReviewError("");
-              try {
-                onReviewed(await api.review(m.id));
-              } catch (e) {
-                setReviewError((e as Error).message);
-              } finally {
-                setReviewing(false);
-              }
-            }}
+            onClick={() => runReview("auto")}
           >
-            {reviewing ? "Revisando…" : files.some((r) => r.review) ? "Volver a revisar" : "Revisar"}
+            {reviewing === "auto" ? "Revisando…" : files.some((r) => r.review) ? "Volver a revisar" : "Revisar"}
+          </button>
+          <button
+            className="ghost small"
+            disabled={disabled || !!reviewing}
+            title="Claude mira un cuadro por paso y marca lo que no coincide con la narración o el callout (tiene costo)"
+            onClick={() => runReview("visual")}
+          >
+            {reviewing === "visual" ? "Claude está revisando…" : "Revisión visual"}
           </button>
           {missing.map((f) => (
             <button key={f} className="ghost small" disabled={disabled} onClick={() => onAdd(f)} title="Genera este formato con el mismo contenido">
@@ -613,6 +622,13 @@ const RenderFigure: React.FC<{ jobId: string; entry: RenderEntry }> = ({ jobId, 
           </span>
         ) : null}
       </figcaption>
+      {review?.visual ? (
+        <p className="muted small review-visual">
+          Revisión visual: {review.visual.moments} cuadros
+          {review.visual.costUsd !== undefined ? ` · US$ ${review.visual.costUsd.toFixed(2)}` : ""} ·{" "}
+          {new Date(review.visual.createdAt).toLocaleString()}
+        </p>
+      ) : null}
       {review?.findings.length ? (
         <ul className="review">
           {review.findings.map((f, i) => (
@@ -623,7 +639,10 @@ const RenderFigure: React.FC<{ jobId: string; entry: RenderEntry }> = ({ jobId, 
                   {fmtTime(f.at)}
                 </button>
               ) : null}
-              <span>{f.message}</span>
+              <span>
+                {f.check === "visual" ? <span className="review-tag">Claude</span> : null}
+                {f.message}
+              </span>
             </li>
           ))}
         </ul>

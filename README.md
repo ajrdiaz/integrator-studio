@@ -108,6 +108,7 @@ npm run video -- --batch pedidos.txt   # un pedido por línea, '#' para comentar
 
 # Revisar la última versión renderizada (sale con código 1 si hay errores)
 npm run video -- --job <id> --review
+npm run video -- --job <id> --review-visual   # además, revisión visual con Claude
 ```
 
 Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`30 s`, `1.5 min`) y formato
@@ -177,6 +178,12 @@ No bloquea: informa errores (✖), avisos (▲) y notas (·).
 - **Audio**: pista presente, silencios de más de 2,5 s dentro de las escenas, pico real (> -0,5 dBTP) y sonoridad
   fuera de -20…-11 LUFS (para redes se recomienda -16…-14).
 
+**Revisión visual con Claude** (a pedido: botón "Revisión visual" o `--review-visual`; ~US$ 0,20 y ~20 s por
+video): se toma un cuadro por paso de pantalla, cuando el globo del callout está visible, y uno por escena animada, y
+Claude marca lo que no coincide con la narración o el callout: el recuadro señala otro elemento, globos cortados o que
+tapan información, pantallas que no muestran lo que se dice. Sus hallazgos llevan la etiqueta "Claude" y se conservan
+al repetir la revisión automática. Los cuadros quedan en `renders/vN/<formato>.visual/`.
+
 El ffmpeg de Remotion no trae `blackdetect`/`freezedetect`/`ebur128`: los cuadros se analizan en TypeScript
 (reducidos a 64×64 en grises) y el audio con `silencedetect` + `loudnorm`.
 
@@ -213,6 +220,7 @@ src/
   stages/render.ts       bundle de Remotion + render por formato
   knowledge.ts           carga knowledge/erp.md para los prompts
   stages/review.ts       revisión automática del render (guion vs. grabación, cuadros, audio, timeline)
+  stages/visual-review.ts revisión visual con Claude (un cuadro por paso)
   jobs/store.ts          carpeta del job, versiones, hashes
   server/                API HTTP + SSE de progreso para la interfaz web
 web/                     interfaz (React + Vite + @remotion/player)

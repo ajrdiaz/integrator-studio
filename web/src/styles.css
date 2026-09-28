@@ -151,6 +151,8 @@ label.inline input { width: 90px; }
 .review li.warning .review-icon { color: var(--warn); }
 .review li.info { color: var(--muted); }
 .review-icon { flex: none; width: 12px; text-align: center; }
+.review-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; background: #eef0ff; color: #4b53b8; border-radius: 5px; padding: 0 5px; margin-right: 6px; }
+.review-visual { margin: 8px 0 0; }
 .review-at { flex: none; border: 0; background: var(--green-soft); color: var(--green-dark); border-radius: 6px; padding: 0 6px; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 
 .ghost.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }

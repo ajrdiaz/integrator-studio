@@ -4,6 +4,7 @@ import { Job, STAGES, type Stage } from "./jobs/store";
 import { log } from "./log";
 import { run } from "./pipeline";
 import { reviewLatest, summarize } from "./stages/review";
+import { visualReviewLatest } from "./stages/visual-review";
 import { FORMATS, type Format } from "./schemas/storyboard";
 
 const HELP = `Integrator Video Studio
@@ -15,6 +16,7 @@ Uso:
   npm run video -- --batch pedidos.txt            (un pedido por línea)
   npm run video -- "promo: ..." --storyboard archivo.json
   npm run video -- --job <id> --review            (revisa la última versión renderizada)
+  npm run video -- --job <id> --review-visual     (además, revisión visual con Claude; tiene costo)
 
 Opciones:
   --job <id>            Reanudar/regenerar un job existente (jobs/<id>)
@@ -28,6 +30,7 @@ Opciones:
   --no-voice            Video sin locución ni subtítulos
   --draft               Borrador rápido a media resolución (no crea versión)
   --review              Solo revisar el último render (guion vs. grabación, cuadros negros, audio…)
+  --review-visual       Revisión visual con Claude del último render (un cuadro por paso)
 `;
 
 function parseFormats(v?: string): Format[] | undefined {
@@ -58,6 +61,7 @@ async function main() {
       "no-voice": { type: "boolean" },
       draft: { type: "boolean" },
       review: { type: "boolean" },
+      "review-visual": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -83,15 +87,18 @@ async function main() {
       ? [positionals.join(" ")]
       : [];
 
-  if (values.job && values.review) {
-    const reviews = reviewLatest(Job.open(values.job));
+  if (values.job && (values.review || values["review-visual"])) {
+    const job = Job.open(values.job);
+    const reviews = values["review-visual"] ? await visualReviewLatest(job) : reviewLatest(job);
     if (!reviews.length) throw new Error("Ese job todavía no tiene renders.");
     for (const r of reviews) {
       const { errors, warnings } = summarize(r);
-      log.info(`\n${r.file}: ${errors} error(es), ${warnings} aviso(s)`);
+      const cost = r.visual?.costUsd !== undefined && values["review-visual"] ? ` · revisión visual: US$ ${r.visual.costUsd.toFixed(2)}` : "";
+      log.info(`\n${r.file}: ${errors} error(es), ${warnings} aviso(s)${cost}`);
       for (const f of r.findings) {
         const at = f.at !== undefined ? `${f.at.toFixed(1)} s` : "";
-        log.info(`  ${f.level === "error" ? "✖" : f.level === "warning" ? "▲" : "·"} ${at.padStart(7)} ${f.scene ? `[${f.scene}${f.step ? `/${f.step}` : ""}] ` : ""}${f.message}`);
+        const icon = f.level === "error" ? "✖" : f.level === "warning" ? "▲" : "·";
+        log.info(`  ${icon} ${at.padStart(7)} ${f.check === "visual" ? "(Claude) " : ""}${f.scene ? `[${f.scene}${f.step ? `/${f.step}` : ""}] ` : ""}${f.message}`);
       }
     }
     if (reviews.some((r) => summarize(r).errors)) process.exitCode = 1;

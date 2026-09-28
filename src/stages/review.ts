@@ -13,7 +13,7 @@ import { stepKey } from "./compose";
 
 export interface Finding {
   level: "error" | "warning" | "info";
-  check: "guion" | "timeline" | "video" | "audio";
+  check: "guion" | "timeline" | "video" | "audio" | "visual";
   message: string;
   /** Segundo del video final donde mirar. */
   at?: number;
@@ -27,6 +27,8 @@ export interface Review {
   format: Format;
   findings: Finding[];
   stats: { durationSec: number; width: number; height: number; loudnessLufs?: number; peakDb?: number };
+  /** Última revisión visual con Claude (sus hallazgos tienen check "visual"). */
+  visual?: { createdAt: string; moments: number; costUsd?: number };
 }
 
 /** Textos visibles de cada paso (al empezar y al terminar), por `stepKey`. Los guarda la grabación. */
@@ -371,16 +373,21 @@ export function checkVideo(file: string, tl: Timeline, format: Format): { findin
 
 export const reviewPath = (renderFile: string) => renderFile.replace(/\.mp4$/, ".review.json");
 
+const ORDER = { error: 0, warning: 1, info: 2 };
+/** Errores, luego avisos, luego notas; dentro de cada nivel, por segundo del video. */
+export const sortFindings = (findings: Finding[]) =>
+  [...findings].sort((a, b) => ORDER[a.level] - ORDER[b.level] || (a.at ?? Infinity) - (b.at ?? Infinity));
+
 export function reviewRender(job: Job, entry: Pick<RenderEntry, "file" | "format">, tl: Timeline): Review {
   const sb = job.readStoryboard();
   const plan = job.exists("recording-plan.json") ? job.readJson<RecordingPlan>("recording-plan.json") : undefined;
   const screen = job.exists("recordings/screen-text.json") ? job.readJson<ScreenTexts>("recordings/screen-text.json") : undefined;
   const video = checkVideo(job.path(entry.file), tl, entry.format as Format);
-  const order = { error: 0, warning: 1, info: 2 };
-  const findings = [...(plan ? checkScript(sb, plan, tl, screen) : []), ...checkTimeline(tl), ...video.findings].sort(
-    (a, b) => order[a.level] - order[b.level] || (a.at ?? Infinity) - (b.at ?? Infinity),
-  );
-  const review: Review = { createdAt: new Date().toISOString(), file: entry.file, format: entry.format as Format, findings, stats: video.stats };
+  // La revisión visual (con costo) se conserva: es del mismo archivo de video.
+  const previous = job.exists(reviewPath(entry.file)) ? job.readJson<Review>(reviewPath(entry.file)) : undefined;
+  const visual = previous?.findings.filter((f) => f.check === "visual") ?? [];
+  const findings = sortFindings([...(plan ? checkScript(sb, plan, tl, screen) : []), ...checkTimeline(tl), ...video.findings, ...visual]);
+  const review: Review = { createdAt: new Date().toISOString(), file: entry.file, format: entry.format as Format, findings, stats: video.stats, visual: previous?.visual };
   job.writeJson(reviewPath(entry.file), review);
   return review;
 }
