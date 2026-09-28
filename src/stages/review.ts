@@ -148,7 +148,8 @@ export function checkScript(sb: Storyboard, plan: RecordingPlan, tl: Timeline, s
       const callout = st.callout ?? planStep.callout;
       if (!callout) continue;
       const same = flagged.get(norm(callout));
-      const parts = callout.split(/\s*[>›/]\s*/).filter(Boolean);
+      // Separadores de menú: ">" o "›", o "/" con espacios ("Ventas / Pedidos"; no "Precio (S/)").
+      const parts = callout.split(/\s*[>›]\s*|\s+\/\s+/).filter((p) => norm(p).trim());
       if (!onScreen || parts.every((p) => found(p, own) || visible(p))) {
         if (same && !onScreen) same.message = same.message.replace("La narración dice", "La narración y el callout dicen");
         continue;

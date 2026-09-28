@@ -154,6 +154,10 @@ Formato del pedido: `promo:` o `tutorial:` + tema, y opcionalmente duración (`3
 Opcional: `ERP_SAMPLE_CUSTOMER` = cliente ficticio que el agente debe usar en los videos. Como Representante de Venta,
 el agente elige el primero de la lista (no crea datos maestros).
 
+**Notas del ERP** (`knowledge/erp.md`): cómo funciona realmente el ERP (p. ej. "Registrar" guarda la cabecera y
+pasa a "Actualizar"; cada ítem se agrega con Enter). El guionista y el agente explorador las leen en cada video y
+prevalecen sobre el manual. Agrega ahí lo que vayas confirmando.
+
 Al terminar la exploración, el guion se ajusta a la interfaz real: si la narración pide tocar un botón que no existe
 ("Haz clic en Nueva Factura") y el paso hizo clic en uno solo con otro nombre ("Nuevo Registro"), se reemplaza en la
 narración y el callout (nueva versión del guion; solo se regenera la voz de esos pasos).
@@ -207,6 +211,7 @@ src/
   stages/storyboard.ts   Claude Agent SDK: salida estructurada + WebSearch/WebFetch limitados a manuales.integrator.pe
   stages/compose.ts      storyboard (+ audios) → timeline en frames
   stages/render.ts       bundle de Remotion + render por formato
+  knowledge.ts           carga knowledge/erp.md para los prompts
   stages/review.ts       revisión automática del render (guion vs. grabación, cuadros, audio, timeline)
   jobs/store.ts          carpeta del job, versiones, hashes
   server/                API HTTP + SSE de progreso para la interfaz web

@@ -90,6 +90,10 @@ describe("revisión: guion vs. grabación", () => {
     const f = checkScript(storyboard, plan, timeline(), screen);
     expect(f.filter((x) => x.step === "cliente").map((x) => x.message)).toEqual(["El callout «Cliente» no aparece en la pantalla. En este paso se hace clic en: «Hoy»."]);
     expect(checkScript(storyboard, plan, timeline(), { ...screen, [stepKey("s1", "cliente")]: "Cliente Documento" }).some((x) => x.step === "cliente")).toBe(false);
+    // Un "/" dentro del nombre no separa partes del callout.
+    const withSlash = structuredClone(storyboard);
+    if (withSlash.scenes[0]!.type === "screen") withSlash.scenes[0]!.steps[1]!.callout = "Precio (S/)";
+    expect(checkScript(withSlash, plan, timeline(), { ...screen, [stepKey("s1", "cliente")]: "Cantidad Precio (S/) Precio +IGV" }).some((x) => x.step === "cliente")).toBe(false);
   });
 });
 

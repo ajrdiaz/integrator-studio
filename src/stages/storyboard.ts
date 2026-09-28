@@ -1,6 +1,7 @@
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { env } from "../config";
+import { erpNotesBlock } from "../knowledge";
 import { log, redact } from "../log";
 import type { ParsedRequest } from "../request";
 import { INTRO_SEC, OUTRO_SEC, Storyboard, checkStoryboard } from "../schemas/storyboard";
@@ -56,7 +57,7 @@ async function ask(prompt: string, transcript: unknown[]): Promise<unknown> {
   const messages = query({
     prompt,
     options: {
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT + erpNotesBlock(),
       model: env.CLAUDE_MODEL,
       tools: ["WebSearch", "WebFetch"],
       allowedTools: ["WebSearch", ...SOURCE_DOMAINS.map((d) => `WebFetch(domain:${d})`)],

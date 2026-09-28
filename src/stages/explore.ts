@@ -3,6 +3,7 @@ import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk"
 import type { Browser, BrowserContext, Page } from "playwright";
 import { z } from "zod";
 import { env } from "../config";
+import { erpNotesBlock } from "../knowledge";
 import type { Job } from "../jobs/store";
 import { log, redact } from "../log";
 import { Action, LocatorSpec, type PlanStep, type RecordingPlan } from "../schemas/recording-plan";
@@ -218,7 +219,7 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
     const messages = query({
       prompt,
       options: {
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: SYSTEM_PROMPT + erpNotesBlock(),
         model: env.CLAUDE_EXPLORER_MODEL ?? env.CLAUDE_MODEL,
         tools: [],
         mcpServers: { erp: server },
