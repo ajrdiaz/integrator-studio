@@ -102,6 +102,9 @@ export const found = (mention: string, texts: string[]) => {
   });
 };
 
+/** Partes de un callout de menú: ">" o "›", o "/" con espacios ("Ventas / Pedidos"; no "Precio (S/)"). */
+export const calloutParts = (callout: string) => callout.split(/\s*[>›]\s*|\s+\/\s+/).filter((p) => norm(p).trim());
+
 /** Segundo del video final en que empieza un paso (por su voz o por el tramo de grabación). */
 function stepTime(tl: Timeline, sceneId: string, stepId: string): number | undefined {
   const ts = tl.scenes.find((s) => s.scene.id === sceneId);
@@ -150,8 +153,7 @@ export function checkScript(sb: Storyboard, plan: RecordingPlan, tl: Timeline, s
       const callout = st.callout ?? planStep.callout;
       if (!callout) continue;
       const same = flagged.get(norm(callout));
-      // Separadores de menú: ">" o "›", o "/" con espacios ("Ventas / Pedidos"; no "Precio (S/)").
-      const parts = callout.split(/\s*[>›]\s*|\s+\/\s+/).filter((p) => norm(p).trim());
+      const parts = calloutParts(callout);
       if (!onScreen || parts.every((p) => found(p, own) || visible(p))) {
         if (same && !onScreen) same.message = same.message.replace("La narración dice", "La narración y el callout dicen");
         continue;

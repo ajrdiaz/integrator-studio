@@ -137,7 +137,7 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
         "Confirma que el paso indicado quedó completo: las acciones pendientes pasan a ese paso del plan.",
         {
           stepId: z.string(),
-          highlight: (LocatorSpec as z.ZodType<LocatorSpec>).optional().describe("Elemento a resaltar en el video si el paso termina escribiendo o eligiendo (si termina en un clic, se resalta ese botón automáticamente)"),
+          highlight: (LocatorSpec as z.ZodType<LocatorSpec>).optional().describe("Elemento que nombra el callout del paso, visible al terminarlo. Indícalo cuando el último clic del paso no sea sobre ese elemento (p. ej. callout «Cliente» y el paso termina eligiendo una fecha: resalta el campo Cliente). Si el paso termina con un clic en el elemento del callout, no hace falta."),
           actions: z
             .array(Action)
             .optional()
@@ -261,7 +261,7 @@ export async function explore(job: Job, sb: Storyboard, onProgress: (m: string) 
         `Escena: ${scene.id}`,
         `Objetivo: ${scene.goal}`,
         `Pasos a completar, en orden (usa estos ids en commit_step):`,
-        ...scene.steps.map((st) => `- ${st.id}: ${st.objective}`),
+        ...scene.steps.map((st) => `- ${st.id}: ${st.objective} (callout del video: «${st.callout}»)`),
         ...(fix ? ["", `IMPORTANTE: esta escena ya se exploró una vez, pero la escena siguiente no pudo continuar por el estado que dejó. Motivo: ${fix}`] : []),
         "",
         "Parte del estado actual del navegador (sesión iniciada, pasos anteriores ya ejecutados). Confirma cada paso con commit_step.",

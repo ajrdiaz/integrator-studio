@@ -82,6 +82,9 @@ jobs/<id>/              datos generados (ignorado por git)
 - **Vista previa ≠ render**: el Player del navegador arma el video en vivo (tramos pre-montados con `premountFor`);
   el render final es cuadro por cuadro. Un problema visto en la vista previa puede no estar en el MP4.
 - `callout` del storyboard prevalece sobre el del plan. Los callouts deben ser el texto exacto visible en pantalla.
+- **Qué se resalta en cada paso** (`record.ts`): el último clic, solo si es el elemento que nombra el callout (o si el
+  plan no indica otro); si no, el `highlight` del plan al final del paso. El explorador recibe el callout de cada paso
+  para indicar ese elemento. En el editor, `clip.highlight: false` oculta anillo y globo de un paso.
 - `writeStoryboard` crea una versión nueva en `history/`; el editor web recarga el guion al terminar un proceso si no
   hay cambios locales sin guardar.
 - `recordings/screen-text.json` (textos visibles por paso) existe solo en grabaciones hechas desde que se agregó;

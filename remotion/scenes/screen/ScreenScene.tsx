@@ -55,7 +55,11 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
     const chipBottom = (isPortrait ? 170 : 120) * u;
     const bubbleAbove = b.y - pad - 90 * u > chipBottom && b.y > height * 0.3;
     const bubbleTop = bubbleAbove ? b.y - pad - 22 * u : b.y + b.height + pad + 22 * u;
-    const bubbleLeft = Math.min(width - 40 * u, Math.max(40 * u, b.x + b.width / 2));
+    // El globo se centra sobre el elemento sin salirse del cuadro: se limita por su ancho estimado (Poppins ≈ 0,6 em
+    // por carácter + relleno), no solo por su centro.
+    const bubbleFont = (isPortrait ? 40 : 34) * u;
+    const bubbleHalf = Math.min(width - 80 * u, step.callout.length * bubbleFont * 0.6 + 48 * u) / 2;
+    const bubbleLeft = Math.min(width - 24 * u - bubbleHalf, Math.max(24 * u + bubbleHalf, b.x + b.width / 2));
     overlay = (
       <>
         <AbsoluteFill style={{ background: `rgba(6,30,24,${0.28 * p})`, clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 ${b.y - pad}px, ${b.x - pad}px ${b.y - pad}px, ${b.x - pad}px ${b.y + b.height + pad}px, ${b.x + b.width + pad}px ${b.y + b.height + pad}px, ${b.x + b.width + pad}px ${b.y - pad}px, 0 ${b.y - pad}px)` }} />
@@ -84,7 +88,7 @@ export const ScreenScene: React.FC<{ scene: ScreenSceneT; screen: Screen; baseUr
             color: brand.white,
             fontFamily: brand.font,
             fontWeight: 600,
-            fontSize: (isPortrait ? 40 : 34) * u,
+            fontSize: bubbleFont,
             padding: `${12 * u}px ${24 * u}px`,
             borderRadius: 16 * u,
             whiteSpace: "nowrap",

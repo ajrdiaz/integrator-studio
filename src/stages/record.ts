@@ -7,7 +7,7 @@ import type { RecordedStep, Recording, RecordingPlan } from "../schemas/recordin
 import { VIEWPORT, assertTestEnvironment, erpTarget, installGuard, launchBrowser, login, resolve } from "./erp/browser";
 import { CURSOR_SCRIPT, Executor } from "./erp/executor";
 import { stepKey } from "./compose";
-import type { ScreenTexts } from "./review";
+import { calloutParts, found, type ScreenTexts } from "./review";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Pausa al final de cada paso con el resultado visible (ahí se muestra el resaltado). */
@@ -65,6 +65,10 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
     const now = () => Date.now() / 1000 - t0;
 
     const steps: RecordedStep[] = [];
+    // Callouts vigentes del guion (pueden haberse corregido después de explorar).
+    const callouts = new Map(
+      job.readStoryboard().scenes.flatMap((sc) => (sc.type === "screen" ? sc.steps.map((st) => [stepKey(sc.id, st.id), st.callout] as const) : [])),
+    );
     /** Textos visibles al empezar y al terminar cada paso: la revisión compara con ellos la narración y los callouts. */
     const screenTexts: ScreenTexts = {};
     const loading: { start: number; end: number }[] = [];
@@ -93,10 +97,16 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
           ? step.actions.map((a) => a.type).lastIndexOf("click")
           : step.actions.map((a) => a.type).lastIndexOf("select");
         const lastIsKey = keyIdx >= 0 && step.actions.slice(keyIdx + 1).every((a) => a.type === "wait");
+        // El globo nombra un elemento: el clic clave se resalta solo si es ese elemento (o si no hay otro indicado).
+        // Si no (p. ej. callout "Cliente" y el paso termina eligiendo una fecha), se resalta `highlight` al final.
+        const key = step.actions[keyIdx];
+        const keyNames = key && (key.type === "click" || key.type === "select") ? [key.target.name, key.target.text, key.target.label, key.type === "select" ? key.option : undefined].filter((v): v is string => !!v) : [];
+        const callout = callouts.get(stepKey(scene.sceneId, step.id)) ?? step.callout;
+        const emphasizeKey = lastIsKey && (!step.highlight || calloutParts(callout).some((p) => found(p, keyNames)));
         const textBefore = await visibleText(page);
         for (const [i, action] of step.actions.entries()) {
           try {
-            await exec.run(action, lastIsKey && i === keyIdx);
+            await exec.run(action, emphasizeKey && i === keyIdx);
           } catch (e) {
             const shot = `recordings/error-${step.id}.jpg`;
             writeFileSync(job.path(shot), await page.screenshot({ type: "jpeg", quality: 70 }));
@@ -107,8 +117,8 @@ export async function record(job: Job, plan: RecordingPlan, onProgress: (m: stri
         screenTexts[stepKey(scene.sceneId, step.id)] = `${textBefore}\n${await visibleText(page)}`;
         if (blocked.length) throw new Error(`Navegación bloqueada fuera del ERP: ${blocked[0]}`);
         await sleep(300);
-        // Si el paso termina escribiendo (no en un clic), se resalta el resultado durante la pausa final.
-        const box = !lastIsKey && step.highlight ? await exec.box(resolve(page, step.highlight).first()).catch(() => undefined) : undefined;
+        // Si no se resaltó el clic clave, se resalta el elemento indicado durante la pausa final.
+        const box = !emphasizeKey && step.highlight ? await exec.box(resolve(page, step.highlight).first()).catch(() => undefined) : undefined;
         const holdStart = now();
         await sleep(HOLD_SEC * 1000);
         if (box) current.highlights.push({ start: holdStart, end: now(), box });
